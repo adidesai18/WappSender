@@ -77,7 +77,7 @@ bot_commands_list=['/start','/login','/upload_content','/clear_content','/broadc
 
 # -----------------------------------------------------------
 
-def send_text(target:str,text:str):
+def send_text(target:str,text:str,user_id):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/chat"
         payload = json.dumps({
@@ -88,9 +88,10 @@ def send_text(target:str,text:str):
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         return response
     except Exception as e:
-        logging.error(f"Unexpected error: {e} in send_text()")
+        logging.error(f"An unexpected error: {e} occurred while sending the text using the API.")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while sending the text using the API.")
 
-def send_image(target:str,cap:str,link:str):
+def send_image(target:str,cap:str,link:str,user_id):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/image"
         payload = json.dumps({
@@ -102,9 +103,10 @@ def send_image(target:str,cap:str,link:str):
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         return response
     except Exception as e:
-        logging.error(f"Unexpected error: {e} in send_image()")
+        logging.error(f"An unexpected error: {e} occurred while sending the image using the API.")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while image the video using the API.")
 
-def send_video(target:str,cap:str,link:str):
+def send_video(target:str,cap:str,link:str,user_id):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/video"
         payload = json.dumps({
@@ -116,9 +118,10 @@ def send_video(target:str,cap:str,link:str):
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         return response
     except Exception as e:
-        logging.error(f"Unexpected error: {e} in send_video()")
+        logging.error(f"An unexpected error: {e} occurred while sending the video using the API.")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while sending the video using the API.")
 
-def send_document(target:str,cap:str,link:str,docname:str):
+def send_document(target:str,cap:str,link:str,docname:str,user_id):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/document"
         payload = json.dumps({
@@ -131,7 +134,8 @@ def send_document(target:str,cap:str,link:str,docname:str):
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         return response
     except Exception as e:
-        logging.error(f"Unexpected error: {e} in send_document()")
+        logging.error(f"An unexpected error: {e} occurred while sending the document using the API.")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while sending the document using the API.")
 
 def send_to_groups(ids:list,content:dict,user_id:str):
     try:
@@ -148,13 +152,13 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                         if broadcast_op['terminate']:
                             pass
                         else:
-                            send_image(id,'',img)
+                            send_image(id,'',img,user_id)
                 if 'videos' in content:
                     if broadcast_op['terminate']:
                         pass
                     else:
                         for vid in content['videos']:
-                            send_video(id,'',vid)
+                            send_video(id,'',vid,user_id)
                 if 'documents' in content:
                     if broadcast_op['terminate']:
                         pass
@@ -163,7 +167,7 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                             key = list(doc_dict.keys())[0]
                             value = doc_dict[key]
                             file_name = key
-                            send_document(id,'',value,file_name)
+                            send_document(id,'',value,file_name,user_id)
                 if 'text' in content and content['text']!=None:
                     if broadcast_op['terminate']:
                         pass
@@ -171,9 +175,10 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                         send_text(id,content['text'])
                 broadcast_op['group_count']+=1
     except Exception as e:
-        logging.error(f"Unexpected error: {e} in send_to_groups()")
+        logging.error(f"An unexpected error: {e} occurred while broadcasting the message and content to the target list")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while broadcasting the message and content to the target list")
 
-def delete_messages(msgId:str):
+def delete_messages(msgId:str,user_id):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/delete"
         payload = json.dumps({
@@ -184,8 +189,9 @@ def delete_messages(msgId:str):
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         return response.json()
     except Exception as e:
-        logging.error(f"Unexpected error: {e} in delete_messages()")
-
+        logging.error(f"An unexpected error: {e} occurred while deleting sent messages using the UltraMsg API.")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while deleting sent messages using the UltraMsg API.")
+        
 def get_groups_dict(user_id):
     try:
         url = f"https://api.ultramsg.com/{instance}/groups"
@@ -201,7 +207,7 @@ def get_groups_dict(user_id):
         return groups_dict
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"Unexpected error: {e} in get_groups_dict()")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while retrieving group names and IDs using get_groups_dict function.")
 
 def clear_messages(status,user_id):
     try:
@@ -210,7 +216,7 @@ def clear_messages(status,user_id):
         requests.post(url, headers={'Content-Type': 'application/json'}, data=payload)
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"Unexpected error: {e} in clear_messages()")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while clearing the UltraMsg server's sent and queued messages.")
 
 def terminate(user_id):
     try:
@@ -219,13 +225,13 @@ def terminate(user_id):
         time.sleep(10)
         value = db.collection('WappSender').document('message-ids').get().get('ids')
         for msgId in value:
-            delete_messages(msgId)
+            delete_messages(msgId,user_id)
         send_txt_message(user_id,'Termination process completed')
         broadcast_op['main_loop_mood'] = False
         broadcast_op['terminate']=False
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"Unexpected error: {e} in terminate()")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred during the termination process after invoking the terminate function")
 
 # -----------------------------------------------------------
 
@@ -243,10 +249,10 @@ def get_file_path(id:str,user_id):
             file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
             return file_url
         else:
-            print("Error retrieving file path:", file_info['description'])
+            send_txt_message(user_id, f"Error retrieving file path:, {file_info['description']}")
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"Unexpected error: {e} in get_file_path()")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while retrieving the file path. ")
 
 def send_txt_message(chat_id, text):
     try:
@@ -256,7 +262,7 @@ def send_txt_message(chat_id, text):
         }
         return requests.post(f"{telegram_api_url}/sendMessage", json=payload).json()
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
+        logging.error(f"An unexpected error: {e} occurred while sending the text message through the Telegram bot.")
 
 def clear_content():
     upload_content_op['content']['photos']=[]
@@ -280,7 +286,7 @@ def send_in_background(target_ids, content, user_id, success_message):
             clear_content()
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"Unexpected error: {e} in send_in_background()")
+        send_txt_message(user_id, f"An unexpected error: {e} occurred while processing the broadcast function in the background using the send_in_background function. ")
         
 # -----------------------------------------------------------
 
@@ -311,13 +317,7 @@ def webhook():
                     list_of_strings = message.split(',')
                     
                     # Validate and convert strings to integers
-                    try:
-                        list_of_numbers = [int(num) - 1 for num in list_of_strings]
-                    except ValueError as e:
-                        logging.error(f"Error converting strings to integers: {e}")
-                        send_txt_message(user_id, "Invalid input. Please enter comma-separated numbers.")
-                        return
-
+                    list_of_numbers = [int(num) - 1 for num in list_of_strings]
                     keys_list = list(exclude_op['groups-list'].keys())
 
                     # Validate indices
@@ -342,49 +342,32 @@ def webhook():
 
                 except Exception as e:
                     logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, "An unexpected error occurred. Please check the logs for more details.")
+                    send_txt_message(user_id, "An unexpected error: {e} occurred while excluding selected groups from the main broadcast list")
 
             elif broadcast_op['broadcast_mode'] and text_message == '3' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
                 broadcast_op['main_loop_mood'] = True
                 try:
                     send_to_groups(['+917720063009'], upload_content_op['content'],user_id)
-                except Exception as e:
-                    logging.error(f"Error sending message to groups: {e}")
-                    send_txt_message(user_id, "❌Error: {e} occured at send_to_groups() in broadcast_op['broadcast_mode'] and text_message == '3' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']❌")
-                else:
                     send_txt_message(user_id, 'The message has been successfully sent to Aditya.')
-                finally: 
                     upload_content_op['upload_content_mode'] = True
                     broadcast_op['main_loop_mood'] = False
+                except Exception as e:
+                    logging.error(f"Unexpected error: {e}")
+                    send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to Aditya')
             
             elif broadcast_op['broadcast_mode'] and text_message == '2' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
                 try:
                     if exclude_op['exclude_users']:
                         target_list = []
-                        try:
-                            for id in get_groups_dict(user_id).keys():
-                                if id in exclude_op['exclude_users']:
-                                    pass
-                                else:
-                                    target_list.append(id)
-                        except Exception as e:
-                            logging.error(f"Error fetching groups: {e}")
-                            send_txt_message(user_id, "❌Error: {e} occured at get_groups_dict().keys() in broadcast_op['broadcast_mode'] and text_message == '2' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']❌")
-                            return
-                        try:
-                            doc_ref = db.collection('WappSender').document('message-ids')
-                            doc_ref.update({'ids': []})
-                        except Exception as e:
-                            logging.error(f"Error updating database: {e}")
-                            send_txt_message(user_id, "Failed to update the database in broadcast_op['broadcast_mode'] and text_message == '2' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']")
-                            return
-                        try:
-                            thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.'))
-                            thread.start()
-                        except Exception as e:
-                            logging.error(f"Error starting thread: {e}")
-                            send_txt_message(user_id, "Failed to start the background task in broadcast_op['broadcast_mode'] and text_message == '2' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']")
-                            return
+                        for id in get_groups_dict(user_id).keys():
+                            if id in exclude_op['exclude_users']:
+                                pass
+                            else:
+                                target_list.append(id)
+                        doc_ref = db.collection('WappSender').document('message-ids')
+                        doc_ref.update({'ids': []})
+                        thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.'))
+                        thread.start()
                         send_txt_message(user_id, 'Request received!.')
                     else:
                         send_txt_message(user_id, 'Please use the /group_list command to select the groups you wish to exclude from broadcasting.')
@@ -392,33 +375,22 @@ def webhook():
                         upload_content_op['upload_content_mode'] = True
                 except Exception as e:
                     logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, "An unexpected error occurred at broadcast_op['broadcast_mode'] and text_message == '2' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']")
+                    send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to selected groups')
 
             elif broadcast_op['broadcast_mode'] and text_message == '1' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
                 target_list = []
                 try:
                     for id in get_groups_dict(user_id).keys():
                         target_list.append(id)
-                except Exception as e:
-                    logging.error(f"Error fetching groups: {e}")
-                    send_txt_message(user_id, "❌Error: {e} occured at get_groups_dict().keys() in broadcast_op['broadcast_mode'] and text_message == '1' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood'].❌")
-                    return
-                try:
                     doc_ref = db.collection('WappSender').document('message-ids')
                     doc_ref.update({'ids': []})
-                except Exception as e:
-                    logging.error(f"Error updating database: {e}")
-                    send_txt_message(user_id, "❌Error: {e} occured at updating database in broadcast_op['broadcast_mode'] and text_message == '1' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood'].❌")
-                    return
-                try:
                     thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.'))
                     thread.start()
+                    send_txt_message(user_id, 'Request received!.')
                 except Exception as e:
-                    logging.error(f"Error starting thread: {e}")
-                    send_txt_message(user_id, "❌Error: {e} occured at starting thread in broadcast_op['broadcast_mode'] and text_message == '1' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood'].❌")
-                    return
-                send_txt_message(user_id, 'Request received!.')
-
+                    logging.error(f"Unexpected error: {e}")
+                    send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to all groups')
+                
             elif upload_content_op['upload_content_mode'] and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
                 upload_content_op['content']['text']=text_message
                 send_txt_message(user_id,f'Text message received!')
@@ -455,7 +427,6 @@ def webhook():
                     send_txt_message(user_id,"Please log in first using /login.")
                     return jsonify({'status': 'ok'})
                 clear_content()
-            
                 send_txt_message(user_id,'The media list has been successfully cleared.')
 
             elif text_message == '/broadcast' and not broadcast_op['main_loop_mood']:
@@ -471,13 +442,7 @@ def webhook():
                     if user_id not in login_op['login_users']:
                         send_txt_message(user_id,"Please log in first using /login.")
                         return jsonify({'status': 'ok'})
-                    try:
-                        exclude_op['groups-list']=get_groups_dict(user_id)
-                    except Exception as e:
-                        logging.error(f"Error fetching groups: {e}")
-                        send_txt_message(user_id, "❌Error: {e} occured at get_groups_dict().keys() in elif text_message == '/group_list' and not broadcast_op['main_loop_mood'].❌")
-                        return
-                    
+                    exclude_op['groups-list']=get_groups_dict(user_id)
                     exclude_op['exclude_users'].clear()
                     output_string_1 = ''
                     output_string_2=''
@@ -493,7 +458,7 @@ def webhook():
                     send_txt_message(user_id,'Please provide the indices of the groups you wish to exclude from the broadcast, separated by commas (e.g., 1,2,3).')
                 except Exception as e:
                     logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred text_message == '/group_list' and not broadcast_op['main_loop_mood']")
+                    send_txt_message(user_id, f"An unexpected error: {e} occurred while updating the group list using the /group_list command.")
 
         elif upload_content_op['upload_content_mode'] and 'photo' in update['message'] and not broadcast_op['main_loop_mood']:
             try:
@@ -506,7 +471,7 @@ def webhook():
                 send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
             except Exception as e:
                     logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred in upload_content_op['upload_content_mode'] and 'photo' in update['message'] and not broadcast_op['main_loop_mood']")
+                    send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
              
         elif upload_content_op['upload_content_mode'] and 'document' in update['message']and not broadcast_op['main_loop_mood']:
             try:
@@ -520,7 +485,7 @@ def webhook():
                 send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
             except Exception as e:
                     logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred in upload_content_op['upload_content_mode'] and 'document' in update['message']and not broadcast_op['main_loop_mood']")
+                    send_txt_message(user_id, f"An unexpected error: {e} occurred during the document upload process")
         
         elif upload_content_op['upload_content_mode'] and 'video' in update['message']and not broadcast_op['main_loop_mood']:
             try:
@@ -533,7 +498,7 @@ def webhook():
                 send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
             except Exception as e:
                     logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred in upload_content_op['upload_content_mode'] and 'video' in update['message']and not broadcast_op['main_loop_mood']")
+                    send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
 
     return jsonify({'status': 'ok'})
 
