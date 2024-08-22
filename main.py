@@ -290,10 +290,9 @@ def send_in_background(target_ids, content, user_id, success_message):
         
 # -----------------------------------------------------------
 
-@app.route('/', methods=['POST'])
+@app.route('/', methods=['POST','GET'])
 def webhook():
     update = request.json
-
     if 'message' in update:
         user_id = update['message']['chat']['id']
         if 'text' in update['message']:
@@ -472,7 +471,7 @@ def webhook():
             except Exception as e:
                     logging.error(f"Unexpected error: {e}")
                     send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
-             
+            
         elif upload_content_op['upload_content_mode'] and 'document' in update['message']and not broadcast_op['main_loop_mood']:
             try:
                 file=update['message']['document']
@@ -499,8 +498,12 @@ def webhook():
             except Exception as e:
                     logging.error(f"Unexpected error: {e}")
                     send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
-
+    
     return jsonify({'status': 'ok'})
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'ok', 'message': 'Service is healthy'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
