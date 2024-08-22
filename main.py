@@ -291,7 +291,7 @@ def send_in_background(target_ids, content, user_id, success_message):
 # -----------------------------------------------------------
 
 @app.route('/', methods=['POST'])
-def webhook():
+def webhook_post():
     update = request.json
     if 'message' in update:
         user_id = update['message']['chat']['id']
@@ -502,7 +502,7 @@ def webhook():
     return jsonify({'status': 'ok'})
 
 @app.route('/', methods=['GET'])
-def webhook():
+def webhook_get():
     response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
     response.headers['Content-Type'] = 'application/json'
     return response, 200
