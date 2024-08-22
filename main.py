@@ -290,7 +290,7 @@ def send_in_background(target_ids, content, user_id, success_message):
         
 # -----------------------------------------------------------
 
-@app.route('/', methods=['POST','GET'])
+@app.route('/', methods=['POST'])
 def webhook():
     update = request.json
     if 'message' in update:
@@ -500,6 +500,12 @@ def webhook():
                     send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
     
     return jsonify({'status': 'ok'})
+
+@app.route('/', methods=['GET'])
+def webhook():
+    response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
+    response.headers['Content-Type'] = 'application/json'
+    return response, 200
 
 @app.route('/health', methods=['GET'])
 def health_check():
