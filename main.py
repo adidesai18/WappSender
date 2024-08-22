@@ -503,7 +503,9 @@ def webhook():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'ok', 'message': 'Service is healthy'}), 200
+    response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
+    response.headers['Content-Type'] = 'application/json'
+    return response, 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
