@@ -38,8 +38,6 @@ cred_dict = {
 
 cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred)
-
-
 db = firestore.client()
 
 app = Flask(__name__)
@@ -409,7 +407,7 @@ def webhook():
             file_id=file['file_id']
             file_size=file['file_size']
             path=get_file_path(file_id)
-            upload_content_op['content']['documents'].append(path)
+            upload_content_op['content']['videos'].append(path)
             file_size_mb = bytes_to_mb(file_size)
             send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
 
