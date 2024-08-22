@@ -1,0 +1,7 @@
+python-dotenv
+firebase_admin
+python-telegram-bot
+flask
+uvicorn
+fastapi
+requests
