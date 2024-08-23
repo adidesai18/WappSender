@@ -297,210 +297,214 @@ def webhook_post():
         user_id = update['message']['chat']['id']
 
         if any(key in update['message'] for key in ["photo", "video", "document"]):
-
-            if upload_content_op['upload_content_mode'] and 'photo' in update['message'] and not broadcast_op['main_loop_mood']:
-                try:
-                    file=update['message']['photo'][-1]
-                    file_id=file['file_id']
-                    file_size=file['file_size']
-                    path=get_file_path(file_id,user_id)
-                    upload_content_op['content']['photos'].append(path)
-                    file_size_mb = bytes_to_mb(file_size)
-                    send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
-                except Exception as e:
-                        logging.error(f"Unexpected error: {e}")
-                        send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
+            if upload_content_op['upload_content_mode'] and not broadcast_op['main_loop_mood']:
+                if 'photo' in update['message']:
+                    try:
+                        file=update['message']['photo'][-1]
+                        file_id=file['file_id']
+                        file_size=file['file_size']
+                        path=get_file_path(file_id,user_id)
+                        upload_content_op['content']['photos'].append(path)
+                        file_size_mb = bytes_to_mb(file_size)
+                        send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
+                    except Exception as e:
+                            logging.error(f"Unexpected error: {e}")
+                            send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
+                        
+                elif 'video' in update['message']:
+                    try:
+                        file=update['message']['video']
+                        file_id=file['file_id']
+                        file_size=file['file_size']
+                        file_size_mb = bytes_to_mb(file_size)
+                        path=get_file_path(file_id,user_id)
+                        upload_content_op['content']['videos'].append(path)
+                        send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
+                    except Exception as e:
+                            logging.error(f"Unexpected error: {e}")
+                            send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
                     
-            elif upload_content_op['upload_content_mode'] and 'video' in update['message']and not broadcast_op['main_loop_mood']:
-                try:
-                    file=update['message']['video']
-                    file_id=file['file_id']
-                    file_size=file['file_size']
-                    file_size_mb = bytes_to_mb(file_size)
-                    path=get_file_path(file_id,user_id)
-                    upload_content_op['content']['videos'].append(path)
-                    send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
-                except Exception as e:
-                        logging.error(f"Unexpected error: {e}")
-                        send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
-                
-            elif upload_content_op['upload_content_mode'] and 'document' in update['message']and not broadcast_op['main_loop_mood']:
-                try:
-                    file=update['message']['document']
-                    file_id=file['file_id']
-                    file_size=file['file_size']
-                    file_name=file['file_name']
-                    path=get_file_path(file_id,user_id)
-                    upload_content_op['content']['documents'].append({file_name:path})
-                    file_size_mb = bytes_to_mb(file_size)
-                    send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
-                except Exception as e:
-                        logging.error(f"Unexpected error: {e}")
-                        send_txt_message(user_id, f"An unexpected error: {e} occurred during the document upload process")
+                elif 'document' in update['message']:
+                    try:
+                        file=update['message']['document']
+                        file_id=file['file_id']
+                        file_size=file['file_size']
+                        file_name=file['file_name']
+                        path=get_file_path(file_id,user_id)
+                        upload_content_op['content']['documents'].append({file_name:path})
+                        file_size_mb = bytes_to_mb(file_size)
+                        send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
+                    except Exception as e:
+                            logging.error(f"Unexpected error: {e}")
+                            send_txt_message(user_id, f"An unexpected error: {e} occurred during the document upload process")
             
         elif 'text' in update['message']:
             text_message=update['message']['text']
 
-            if login_op['login_mode'] and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
-                try:
-                    if text_message==wappsender:
-                        send_txt_message(user_id,"You are authorized to use the bot.")
-                        login_op['login_users'][user_id]=True
-                        login_op['login_mode']=False
-                    else:
-                        send_txt_message(user_id,"Invalid password. Please try again:")
-                except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred at login mode")
-
-            elif exclude_op['exclude_mode'] and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
-                try:
-                    message = update['message']['text']
-                    list_of_strings = message.split(',')
-                    
-                    # Validate and convert strings to integers
-                    list_of_numbers = [int(num) - 1 for num in list_of_strings]
-                    keys_list = list(exclude_op['groups-list'].keys())
-
-                    # Validate indices
-                    for index in list_of_numbers:
-                        # if not 0 <= index < len(keys_list):
-                        #     logging.error(f"Invalid index: {index}")
-                        #     send_txt_message(user_id, "Invalid index. Please ensure indices are within the valid range.")
-
-                        key_to_remove = keys_list[index]
-                        exclude_op['exclude_users'].append(key_to_remove)
-
-                    # Construct excluded groups message
-                    excluded_groups = ''
-                    for group in exclude_op['exclude_users']:
-                        excluded_groups += exclude_op['groups-list'][group] + '\n'
-
-
-                    send_txt_message(user_id, f'Excluded groups are:\n{excluded_groups.strip()}')
-
-                    exclude_op['exclude_mode'] = False
-
-                except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred while excluding selected groups from the main broadcast list")
-
-            elif broadcast_op['broadcast_mode'] and text_message == '3' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
-                broadcast_op['main_loop_mood'] = True
-                try:
-                    send_to_groups(['+917720063009'], upload_content_op['content'],user_id)
-                    send_txt_message(user_id, 'The message has been successfully sent to Aditya.')
-                    upload_content_op['upload_content_mode'] = True
-                    broadcast_op['main_loop_mood'] = False
-                except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to Aditya')
-            
-            elif broadcast_op['broadcast_mode'] and text_message == '2' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
-                try:
-                    if exclude_op['exclude_users']:
-                        target_list = []
-                        for id in get_groups_dict(user_id).keys():
-                            if id in exclude_op['exclude_users']:
-                                pass
+            if not broadcast_op['main_loop_mood']:
+                if text_message not in bot_commands_list:
+                    if login_op['login_mode']:
+                        try:
+                            if text_message==wappsender:
+                                send_txt_message(user_id,"You are authorized to use the bot.")
+                                login_op['login_users'][user_id]=True
+                                login_op['login_mode']=False
                             else:
-                                target_list.append(id)
-                        doc_ref = db.collection('WappSender').document('message-ids')
-                        doc_ref.update({'ids': []})
-                        thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.'))
-                        thread.start()
-                        send_txt_message(user_id, 'Request received!.')
+                                send_txt_message(user_id,"Invalid password. Please try again:")
+                        except Exception as e:
+                            logging.error(f"Unexpected error: {e}")
+                            send_txt_message(user_id, f"An unexpected error: {e} occurred at login mode")
+
+                    elif exclude_op['exclude_mode']:
+                        try:
+                            message = update['message']['text']
+                            list_of_strings = message.split(',')
+                            
+                            # Validate and convert strings to integers
+                            list_of_numbers = [int(num) - 1 for num in list_of_strings]
+                            keys_list = list(exclude_op['groups-list'].keys())
+
+                            # Validate indices
+                            for index in list_of_numbers:
+                                # if not 0 <= index < len(keys_list):
+                                #     logging.error(f"Invalid index: {index}")
+                                #     send_txt_message(user_id, "Invalid index. Please ensure indices are within the valid range.")
+
+                                key_to_remove = keys_list[index]
+                                exclude_op['exclude_users'].append(key_to_remove)
+
+                            # Construct excluded groups message
+                            excluded_groups = ''
+                            for group in exclude_op['exclude_users']:
+                                excluded_groups += exclude_op['groups-list'][group] + '\n'
+
+
+                            send_txt_message(user_id, f'Excluded groups are:\n{excluded_groups.strip()}')
+
+                            exclude_op['exclude_mode'] = False
+
+                        except Exception as e:
+                            logging.error(f"Unexpected error: {e}")
+                            send_txt_message(user_id, f"An unexpected error: {e} occurred while excluding selected groups from the main broadcast list")
+                    
+                    elif broadcast_op['broadcast_mode']:
+
+                        if text_message == '3':
+                            broadcast_op['main_loop_mood'] = True
+                            try:
+                                send_to_groups(['+917720063009'], upload_content_op['content'],user_id)
+                                send_txt_message(user_id, 'The message has been successfully sent to Aditya.')
+                                upload_content_op['upload_content_mode'] = True
+                                broadcast_op['main_loop_mood'] = False
+                            except Exception as e:
+                                logging.error(f"Unexpected error: {e}")
+                                send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to Aditya')
+                        
+                        elif text_message == '2':
+                            try:
+                                if exclude_op['exclude_users']:
+                                    target_list = []
+                                    for id in get_groups_dict(user_id).keys():
+                                        if id in exclude_op['exclude_users']:
+                                            pass
+                                        else:
+                                            target_list.append(id)
+                                    doc_ref = db.collection('WappSender').document('message-ids')
+                                    doc_ref.update({'ids': []})
+                                    thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.'))
+                                    thread.start()
+                                    send_txt_message(user_id, 'Request received!.')
+                                else:
+                                    send_txt_message(user_id, 'Please use the /group_list command to select the groups you wish to exclude from broadcasting.')
+                                    broadcast_op['broadcast_mode'] = False
+                                    upload_content_op['upload_content_mode'] = True
+                            except Exception as e:
+                                logging.error(f"Unexpected error: {e}")
+                                send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to selected groups')
+
+                        elif text_message == '1':
+                            target_list = []
+                            try:
+                                for id in get_groups_dict(user_id).keys():
+                                    target_list.append(id)
+                                doc_ref = db.collection('WappSender').document('message-ids')
+                                doc_ref.update({'ids': []})
+                                thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.'))
+                                thread.start()
+                                send_txt_message(user_id, 'Request received!.')
+                            except Exception as e:
+                                logging.error(f"Unexpected error: {e}")
+                                send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to all groups')
+                        
+                    elif upload_content_op['upload_content_mode']:
+                        upload_content_op['content']['text']=text_message
+                        send_txt_message(user_id,f'Text message received!')
+
+                elif text_message == "/start":
+                    if not user_id in login_op['login_users']:
+                        send_txt_message(user_id, "Hello! I am WappSender,\nI am here to help you with WhatsApp broadcasting.\nTo get started, please /login to use the bot.")
                     else:
-                        send_txt_message(user_id, 'Please use the /group_list command to select the groups you wish to exclude from broadcasting.')
-                        broadcast_op['broadcast_mode'] = False
-                        upload_content_op['upload_content_mode'] = True
-                except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to selected groups')
+                        send_txt_message(user_id,"Welcome back! You are already logged in.")
 
-            elif broadcast_op['broadcast_mode'] and text_message == '1' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
-                target_list = []
-                try:
-                    for id in get_groups_dict(user_id).keys():
-                        target_list.append(id)
-                    doc_ref = db.collection('WappSender').document('message-ids')
-                    doc_ref.update({'ids': []})
-                    thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.'))
-                    thread.start()
-                    send_txt_message(user_id, 'Request received!.')
-                except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to all groups')
+                elif text_message == "/login":
+                    if user_id in login_op['login_users']:
+                        send_txt_message(user_id,"You are already logged in.")
+                        return jsonify({'status': 'ok'})
+                    send_txt_message(user_id,'Please enter the password to login:')
+                    login_op['login_mode']=True
                 
-            elif upload_content_op['upload_content_mode'] and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
-                upload_content_op['content']['text']=text_message
-                send_txt_message(user_id,f'Text message received!')
-
-            elif text_message == "/start" and not broadcast_op['main_loop_mood']:
-                if not user_id in login_op['login_users']:
-                    send_txt_message(user_id, "Hello! I am WappSender,\nI am here to help you with WhatsApp broadcasting.\nTo get started, please /login to use the bot.")
-                else:
-                    send_txt_message(user_id,"Welcome back! You are already logged in.")
-
-            elif text_message == "/show_status" and broadcast_op['main_loop_mood']:
-                send_txt_message(user_id, f"{broadcast_op['group_count']}/{broadcast_op['groups_len']}")
-            
-            elif text_message == "/terminate" and broadcast_op['main_loop_mood']:
-                broadcast_op['terminate']=True
-
-            elif text_message == "/login" and not broadcast_op['main_loop_mood']:
-                if user_id in login_op['login_users']:
-                    send_txt_message(user_id,"You are already logged in.")
-                    return jsonify({'status': 'ok'})
-                send_txt_message(user_id,'Please enter the password to login:')
-                login_op['login_mode']=True
-            
-            elif text_message == '/upload_content' and not broadcast_op['main_loop_mood']:
-                if user_id not in login_op['login_users']:
-                    send_txt_message(user_id,"Please log in first using /login.")
-                    return jsonify({'status': 'ok'})
-                clear_content()
-                send_txt_message(user_id,'To send photos, videos, documents, or text messages, please enter the media or text you would like to broadcast.')
-                upload_content_op['upload_content_mode']=True
-
-            elif text_message == '/clear_content' and not broadcast_op['main_loop_mood']:
-                if user_id not in login_op['login_users']:
-                    send_txt_message(user_id,"Please log in first using /login.")
-                    return jsonify({'status': 'ok'})
-                clear_content()
-                send_txt_message(user_id,'The media list has been successfully cleared.')
-
-            elif text_message == '/broadcast' and not broadcast_op['main_loop_mood']:
-                if not upload_content_op['upload_content_mode']:
-                    send_txt_message(user_id,"No content has been uploaded yet. Please use the /upload_content command to upload content before proceeding with the broadcast.")
-                    return jsonify({'status': 'ok'})
-                upload_content_op['upload_content_mode']=False
-                send_txt_message(user_id,'1. Send a message to all groups\n2. Send a message to selected groups\n3. Send a message to Aditya')
-                broadcast_op['broadcast_mode']=True
-                
-            elif text_message == '/group_list' and not broadcast_op['main_loop_mood']:
-                try:
+                elif text_message == '/upload_content':
                     if user_id not in login_op['login_users']:
                         send_txt_message(user_id,"Please log in first using /login.")
                         return jsonify({'status': 'ok'})
-                    exclude_op['groups-list']=get_groups_dict(user_id)
-                    exclude_op['exclude_users'].clear()
-                    output_string_1 = ''
-                    output_string_2=''
-                    # Building the output string
-                    for index, value in enumerate(exclude_op['groups-list'].values()):
-                        if index<100:
-                            output_string_1 += f"{index+1}:  {value}\n"
-                        else:
-                            output_string_2 += f"{index+1}:  {value}\n"
-                    exclude_op['exclude_mode']=True
-                    send_txt_message(user_id,output_string_1)
-                    send_txt_message(user_id,output_string_2)
-                    send_txt_message(user_id,'Please provide the indices of the groups you wish to exclude from the broadcast, separated by commas (e.g., 1,2,3).')
-                except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred while updating the group list using the /group_list command.")
+                    clear_content()
+                    send_txt_message(user_id,'To send photos, videos, documents, or text messages, please enter the media or text you would like to broadcast.')
+                    upload_content_op['upload_content_mode']=True
 
+                elif text_message == '/clear_content':
+                    if user_id not in login_op['login_users']:
+                        send_txt_message(user_id,"Please log in first using /login.")
+                        return jsonify({'status': 'ok'})
+                    clear_content()
+                    send_txt_message(user_id,'The media list has been successfully cleared.')
+
+                elif text_message == '/broadcast':
+                    if not upload_content_op['upload_content_mode']:
+                        send_txt_message(user_id,"No content has been uploaded yet. Please use the /upload_content command to upload content before proceeding with the broadcast.")
+                        return jsonify({'status': 'ok'})
+                    upload_content_op['upload_content_mode']=False
+                    send_txt_message(user_id,'1. Send a message to all groups\n2. Send a message to selected groups\n3. Send a message to Aditya')
+                    broadcast_op['broadcast_mode']=True
+                    
+                elif text_message == '/group_list':
+                    try:
+                        if user_id not in login_op['login_users']:
+                            send_txt_message(user_id,"Please log in first using /login.")
+                            return jsonify({'status': 'ok'})
+                        exclude_op['groups-list']=get_groups_dict(user_id)
+                        exclude_op['exclude_users'].clear()
+                        output_string_1 = ''
+                        output_string_2=''
+                        # Building the output string
+                        for index, value in enumerate(exclude_op['groups-list'].values()):
+                            if index<100:
+                                output_string_1 += f"{index+1}:  {value}\n"
+                            else:
+                                output_string_2 += f"{index+1}:  {value}\n"
+                        exclude_op['exclude_mode']=True
+                        send_txt_message(user_id,output_string_1)
+                        send_txt_message(user_id,output_string_2)
+                        send_txt_message(user_id,'Please provide the indices of the groups you wish to exclude from the broadcast, separated by commas (e.g., 1,2,3).')
+                    except Exception as e:
+                        logging.error(f"Unexpected error: {e}")
+                        send_txt_message(user_id, f"An unexpected error: {e} occurred while updating the group list using the /group_list command.")
+
+            else:
+                if text_message == "/show_status" :
+                    send_txt_message(user_id, f"{broadcast_op['group_count']}/{broadcast_op['groups_len']}")
+                
+                elif text_message == "/terminate":
+                    broadcast_op['terminate']=True
     return jsonify({'status': 'ok'})
 
 @app.route('/health', methods=['GET'])
