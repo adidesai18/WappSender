@@ -295,7 +295,50 @@ def webhook_post():
     update = request.json
     if 'message' in update:
         user_id = update['message']['chat']['id']
-        if 'text' in update['message']:
+
+        if any(key in update['message'] for key in ["photo", "video", "document"]):
+
+            if upload_content_op['upload_content_mode'] and 'photo' in update['message'] and not broadcast_op['main_loop_mood']:
+                try:
+                    file=update['message']['photo'][-1]
+                    file_id=file['file_id']
+                    file_size=file['file_size']
+                    path=get_file_path(file_id,user_id)
+                    upload_content_op['content']['photos'].append(path)
+                    file_size_mb = bytes_to_mb(file_size)
+                    send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
+                except Exception as e:
+                        logging.error(f"Unexpected error: {e}")
+                        send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
+                    
+            elif upload_content_op['upload_content_mode'] and 'video' in update['message']and not broadcast_op['main_loop_mood']:
+                try:
+                    file=update['message']['video']
+                    file_id=file['file_id']
+                    file_size=file['file_size']
+                    file_size_mb = bytes_to_mb(file_size)
+                    path=get_file_path(file_id,user_id)
+                    upload_content_op['content']['videos'].append(path)
+                    send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
+                except Exception as e:
+                        logging.error(f"Unexpected error: {e}")
+                        send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
+                
+            elif upload_content_op['upload_content_mode'] and 'document' in update['message']and not broadcast_op['main_loop_mood']:
+                try:
+                    file=update['message']['document']
+                    file_id=file['file_id']
+                    file_size=file['file_size']
+                    file_name=file['file_name']
+                    path=get_file_path(file_id,user_id)
+                    upload_content_op['content']['documents'].append({file_name:path})
+                    file_size_mb = bytes_to_mb(file_size)
+                    send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
+                except Exception as e:
+                        logging.error(f"Unexpected error: {e}")
+                        send_txt_message(user_id, f"An unexpected error: {e} occurred during the document upload process")
+            
+        elif 'text' in update['message']:
             text_message=update['message']['text']
 
             if login_op['login_mode'] and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
@@ -324,7 +367,6 @@ def webhook_post():
                         # if not 0 <= index < len(keys_list):
                         #     logging.error(f"Invalid index: {index}")
                         #     send_txt_message(user_id, "Invalid index. Please ensure indices are within the valid range.")
-
 
                         key_to_remove = keys_list[index]
                         exclude_op['exclude_users'].append(key_to_remove)
@@ -459,53 +501,7 @@ def webhook_post():
                     logging.error(f"Unexpected error: {e}")
                     send_txt_message(user_id, f"An unexpected error: {e} occurred while updating the group list using the /group_list command.")
 
-        elif upload_content_op['upload_content_mode'] and 'photo' in update['message'] and not broadcast_op['main_loop_mood']:
-            try:
-                file=update['message']['photo'][-1]
-                file_id=file['file_id']
-                file_size=file['file_size']
-                path=get_file_path(file_id,user_id)
-                upload_content_op['content']['photos'].append(path)
-                file_size_mb = bytes_to_mb(file_size)
-                send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
-            except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
-            
-        elif upload_content_op['upload_content_mode'] and 'document' in update['message']and not broadcast_op['main_loop_mood']:
-            try:
-                file=update['message']['document']
-                file_id=file['file_id']
-                file_size=file['file_size']
-                file_name=file['file_name']
-                path=get_file_path(file_id,user_id)
-                upload_content_op['content']['documents'].append({file_name:path})
-                file_size_mb = bytes_to_mb(file_size)
-                send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
-            except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred during the document upload process")
-        
-        elif upload_content_op['upload_content_mode'] and 'video' in update['message']and not broadcast_op['main_loop_mood']:
-            try:
-                file=update['message']['video']
-                file_id=file['file_id']
-                file_size=file['file_size']
-                path=get_file_path(file_id,user_id)
-                upload_content_op['content']['videos'].append(path)
-                file_size_mb = bytes_to_mb(file_size)
-                send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
-            except Exception as e:
-                    logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
-    
     return jsonify({'status': 'ok'})
-
-@app.route('/', methods=['GET'])
-def webhook_get():
-    response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
-    response.headers['Content-Type'] = 'application/json'
-    return response, 200
 
 @app.route('/health', methods=['GET'])
 def health_check():
