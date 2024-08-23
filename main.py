@@ -321,10 +321,10 @@ def webhook_post():
 
                     # Validate indices
                     for index in list_of_numbers:
-                        if not 0 <= index < len(keys_list):
-                            logging.error(f"Invalid index: {index}")
-                            send_txt_message(user_id, "Invalid index. Please ensure indices are within the valid range.")
-                            return
+                        # if not 0 <= index < len(keys_list):
+                        #     logging.error(f"Invalid index: {index}")
+                        #     send_txt_message(user_id, "Invalid index. Please ensure indices are within the valid range.")
+
 
                         key_to_remove = keys_list[index]
                         exclude_op['exclude_users'].append(key_to_remove)
