@@ -341,7 +341,7 @@ def webhook_post():
 
                 except Exception as e:
                     logging.error(f"Unexpected error: {e}")
-                    send_txt_message(user_id, "An unexpected error: {e} occurred while excluding selected groups from the main broadcast list")
+                    send_txt_message(user_id, f"An unexpected error: {e} occurred while excluding selected groups from the main broadcast list")
 
             elif broadcast_op['broadcast_mode'] and text_message == '3' and text_message not in bot_commands_list and not broadcast_op['main_loop_mood']:
                 broadcast_op['main_loop_mood'] = True
