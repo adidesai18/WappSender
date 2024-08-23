@@ -249,10 +249,13 @@ def get_file_path(id:str,user_id):
             file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
             return file_url
         else:
-            send_txt_message(user_id, f"Error retrieving file path:, {file_info['description']}")
+            file_size = file_info['result']['file_size']
+            send_txt_message(user_id, f"Error retrieving file path.\n{file_info['description']}\nFile size: {file_size}")
+            return 500
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         send_txt_message(user_id, f"An unexpected error: {e} occurred while retrieving the file path. ")
+        return 500
 
 def send_txt_message(chat_id, text):
     try:
@@ -304,12 +307,15 @@ def webhook_post():
                         file_id=file['file_id']
                         file_size=file['file_size']
                         path=get_file_path(file_id,user_id)
+                        if path==500:
+                            return jsonify({'status': 'ok'})
                         upload_content_op['content']['photos'].append(path)
                         file_size_mb = bytes_to_mb(file_size)
                         send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
+                            return jsonify({'status': 'ok'})
                         
                 elif 'video' in update['message']:
                     try:
@@ -318,11 +324,14 @@ def webhook_post():
                         file_size=file['file_size']
                         file_size_mb = bytes_to_mb(file_size)
                         path=get_file_path(file_id,user_id)
+                        if path==500:
+                            return jsonify({'status': 'ok'})
                         upload_content_op['content']['videos'].append(path)
                         send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
+                            return jsonify({'status': 'ok'})
                     
                 elif 'document' in update['message']:
                     try:
@@ -331,12 +340,15 @@ def webhook_post():
                         file_size=file['file_size']
                         file_name=file['file_name']
                         path=get_file_path(file_id,user_id)
+                        if path==500:
+                            return jsonify({'status': 'ok'})
                         upload_content_op['content']['documents'].append({file_name:path})
                         file_size_mb = bytes_to_mb(file_size)
                         send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"An unexpected error: {e} occurred during the document upload process")
+                            return jsonify({'status': 'ok'})
             
         elif 'text' in update['message']:
             text_message=update['message']['text']
