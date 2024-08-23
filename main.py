@@ -37,12 +37,15 @@ cred_dict = {
   "universe_domain": "googleapis.com"
 }
 
-cred = credentials.Certificate(cred_dict)
+cred = credentials.Certificate('wappsender-key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
+
+class WappSenderError(Exception):
+    pass
 
 login_op={
     'login_mode':False,
@@ -77,7 +80,7 @@ bot_commands_list=['/start','/login','/upload_content','/clear_content','/broadc
 
 # -----------------------------------------------------------
 
-def send_text(target:str,text:str,user_id):
+def send_text(target:str,text:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/chat"
         payload = json.dumps({
@@ -89,9 +92,9 @@ def send_text(target:str,text:str,user_id):
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the text using the API.")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while sending the text using the API.")
+        raise WappSenderError('{e} - in send_text()')
 
-def send_image(target:str,cap:str,link:str,user_id):
+def send_image(target:str,cap:str,link:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/image"
         payload = json.dumps({
@@ -104,9 +107,9 @@ def send_image(target:str,cap:str,link:str,user_id):
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the image using the API.")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while image the video using the API.")
+        raise WappSenderError('{e} - in send_image()')
 
-def send_video(target:str,cap:str,link:str,user_id):
+def send_video(target:str,cap:str,link:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/video"
         payload = json.dumps({
@@ -119,9 +122,9 @@ def send_video(target:str,cap:str,link:str,user_id):
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the video using the API.")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while sending the video using the API.")
+        raise WappSenderError('{e} - in send_video()')
 
-def send_document(target:str,cap:str,link:str,docname:str,user_id):
+def send_document(target:str,cap:str,link:str,docname:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/document"
         payload = json.dumps({
@@ -135,7 +138,7 @@ def send_document(target:str,cap:str,link:str,docname:str,user_id):
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the document using the API.")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while sending the document using the API.")
+        raise WappSenderError('{e} - in send_document()')
 
 def send_to_groups(ids:list,content:dict,user_id:str):
     try:
@@ -152,13 +155,13 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                         if broadcast_op['terminate']:
                             pass
                         else:
-                            send_image(id,'',img,user_id)
+                            send_image(id,'',img)
                 if 'videos' in content:
                     if broadcast_op['terminate']:
                         pass
                     else:
                         for vid in content['videos']:
-                            send_video(id,'',vid,user_id)
+                            send_video(id,'',vid)
                 if 'documents' in content:
                     if broadcast_op['terminate']:
                         pass
@@ -167,7 +170,7 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                             key = list(doc_dict.keys())[0]
                             value = doc_dict[key]
                             file_name = key
-                            send_document(id,'',value,file_name,user_id)
+                            send_document(id,'',value,file_name)
                 if 'text' in content and content['text']!=None:
                     if broadcast_op['terminate']:
                         pass
@@ -176,9 +179,9 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                 broadcast_op['group_count']+=1
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while broadcasting the message and content to the target list")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while broadcasting the message and content to the target list")
+        raise WappSenderError('{e} - in send_to_groups()')
 
-def delete_messages(msgId:str,user_id):
+def delete_messages(msgId:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/delete"
         payload = json.dumps({
@@ -190,9 +193,9 @@ def delete_messages(msgId:str,user_id):
         return response.json()
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while deleting sent messages using the UltraMsg API.")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while deleting sent messages using the UltraMsg API.")
+        raise WappSenderError('{e} - in delete_messages()')
         
-def get_groups_dict(user_id):
+def get_groups_dict():
     try:
         url = f"https://api.ultramsg.com/{instance}/groups"
 
@@ -207,31 +210,31 @@ def get_groups_dict(user_id):
         return groups_dict
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while retrieving group names and IDs using get_groups_dict function.")
+        raise WappSenderError('{e} - in get_groups_dict()')
 
-def clear_messages(status,user_id):
+def clear_messages(status):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/clear"
         payload = json.dumps({"token": wapp_token, "status": status})
         requests.post(url, headers={'Content-Type': 'application/json'}, data=payload)
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while clearing the UltraMsg server's sent and queued messages.")
+        raise WappSenderError('{e} - in clear_messages()')
 
 def terminate(user_id):
     try:
-        clear_messages("queue",user_id)
-        clear_messages("sent",user_id)
+        clear_messages("queue")
+        clear_messages("sent")
         time.sleep(10)
         value = db.collection('WappSender').document('message-ids').get().get('ids')
         for msgId in value:
-            delete_messages(msgId,user_id)
+            delete_messages(msgId)
         send_txt_message(user_id,'Termination process completed')
         broadcast_op['main_loop_mood'] = False
         broadcast_op['terminate']=False
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred during the termination process after invoking the terminate function")
+        raise WappSenderError('{e} - in terminate()')
 
 # -----------------------------------------------------------
 
@@ -239,23 +242,16 @@ def bytes_to_mb(byte_size: int) -> float:
     """Convert bytes to megabytes."""
     return byte_size / (1024 * 1024)
 
-def get_file_path(id:str,user_id):
-    try:
-        url = f"{telegram_api_url}/getFile?file_id={id}"
-        response = requests.get(url)
-        file_info = response.json()
-        if file_info['ok']:
-            file_path = file_info['result']['file_path']
-            file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
-            return file_url
-        else:
-            file_size = file_info['result']['file_size']
-            send_txt_message(user_id, f"Error retrieving file path.\n{file_info['description']}\nFile size: {file_size}")
-            return 500
-    except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while retrieving the file path. ")
-        return 500
+def get_file_path(id:str):
+    url = f"{telegram_api_url}/getFile?file_id={id}"
+    response = requests.get(url)
+    file_info = response.json()
+    if file_info['ok']:
+        file_path = file_info['result']['file_path']
+        file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+        return file_url
+    else:
+        raise WappSenderError(f"\n{file_info['description']}")
 
 def send_txt_message(chat_id, text):
     try:
@@ -288,8 +284,8 @@ def send_in_background(target_ids, content, user_id, success_message):
             broadcast_op['main_loop_mood'] = False
             clear_content()
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        send_txt_message(user_id, f"An unexpected error: {e} occurred while processing the broadcast function in the background using the send_in_background function. ")
+        logging.error(f"Error: {e}")
+        raise WappSenderError('{e} - in send_in_background()')
         
 # -----------------------------------------------------------
 
@@ -306,15 +302,13 @@ def webhook_post():
                         file=update['message']['photo'][-1]
                         file_id=file['file_id']
                         file_size=file['file_size']
-                        path=get_file_path(file_id,user_id)
-                        if path==500:
-                            return jsonify({'status': 'ok'})
-                        upload_content_op['content']['photos'].append(path)
                         file_size_mb = bytes_to_mb(file_size)
+                        path=get_file_path(file_id)
+                        upload_content_op['content']['videos'].append(path)
                         send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
-                            send_txt_message(user_id, f"An unexpected error: {e} occurred during the photo upload process")
+                            send_txt_message(user_id, f"Error: {e} occurred during the photo upload process")
                             return jsonify({'status': 'ok'})
                         
                 elif 'video' in update['message']:
@@ -323,14 +317,12 @@ def webhook_post():
                         file_id=file['file_id']
                         file_size=file['file_size']
                         file_size_mb = bytes_to_mb(file_size)
-                        path=get_file_path(file_id,user_id)
-                        if path==500:
-                            return jsonify({'status': 'ok'})
+                        path=get_file_path(file_id)
                         upload_content_op['content']['videos'].append(path)
                         send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
-                            send_txt_message(user_id, f"An unexpected error: {e} occurred during the video upload process")
+                            send_txt_message(user_id, f"Error: {e} occurred during the video upload process")
                             return jsonify({'status': 'ok'})
                     
                 elif 'document' in update['message']:
@@ -338,16 +330,14 @@ def webhook_post():
                         file=update['message']['document']
                         file_id=file['file_id']
                         file_size=file['file_size']
-                        file_name=file['file_name']
-                        path=get_file_path(file_id,user_id)
-                        if path==500:
-                            return jsonify({'status': 'ok'})
-                        upload_content_op['content']['documents'].append({file_name:path})
                         file_size_mb = bytes_to_mb(file_size)
+                        file_name=file['file_name']
+                        path=get_file_path(file_id)
+                        upload_content_op['content']['videos'].append(path)         
                         send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
-                            send_txt_message(user_id, f"An unexpected error: {e} occurred during the document upload process")
+                            send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
                             return jsonify({'status': 'ok'})
             
         elif 'text' in update['message']:
@@ -356,16 +346,12 @@ def webhook_post():
             if not broadcast_op['main_loop_mood']:
                 if text_message not in bot_commands_list:
                     if login_op['login_mode']:
-                        try:
-                            if text_message==wappsender:
-                                send_txt_message(user_id,"You are authorized to use the bot.")
-                                login_op['login_users'][user_id]=True
-                                login_op['login_mode']=False
-                            else:
-                                send_txt_message(user_id,"Invalid password. Please try again:")
-                        except Exception as e:
-                            logging.error(f"Unexpected error: {e}")
-                            send_txt_message(user_id, f"An unexpected error: {e} occurred at login mode")
+                        if text_message==wappsender:
+                            send_txt_message(user_id,"You are authorized to use the bot.")
+                            login_op['login_users'][user_id]=True
+                            login_op['login_mode']=False
+                        else:
+                            send_txt_message(user_id,"Invalid password. Please try again:")
 
                     elif exclude_op['exclude_mode']:
                         try:
@@ -378,10 +364,6 @@ def webhook_post():
 
                             # Validate indices
                             for index in list_of_numbers:
-                                # if not 0 <= index < len(keys_list):
-                                #     logging.error(f"Invalid index: {index}")
-                                #     send_txt_message(user_id, "Invalid index. Please ensure indices are within the valid range.")
-
                                 key_to_remove = keys_list[index]
                                 exclude_op['exclude_users'].append(key_to_remove)
 
@@ -390,9 +372,7 @@ def webhook_post():
                             for group in exclude_op['exclude_users']:
                                 excluded_groups += exclude_op['groups-list'][group] + '\n'
 
-
                             send_txt_message(user_id, f'Excluded groups are:\n{excluded_groups.strip()}')
-
                             exclude_op['exclude_mode'] = False
 
                         except Exception as e:
@@ -410,13 +390,14 @@ def webhook_post():
                                 broadcast_op['main_loop_mood'] = False
                             except Exception as e:
                                 logging.error(f"Unexpected error: {e}")
-                                send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to Aditya')
+                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to Aditya')
+                                return jsonify({'status': 'ok'})
                         
                         elif text_message == '2':
                             try:
                                 if exclude_op['exclude_users']:
                                     target_list = []
-                                    for id in get_groups_dict(user_id).keys():
+                                    for id in get_groups_dict().keys():
                                         if id in exclude_op['exclude_users']:
                                             pass
                                         else:
@@ -432,12 +413,13 @@ def webhook_post():
                                     upload_content_op['upload_content_mode'] = True
                             except Exception as e:
                                 logging.error(f"Unexpected error: {e}")
-                                send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to selected groups')
+                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to selected groups')
+                                return jsonify({'status': 'ok'})
 
                         elif text_message == '1':
                             target_list = []
                             try:
-                                for id in get_groups_dict(user_id).keys():
+                                for id in get_groups_dict().keys():
                                     target_list.append(id)
                                 doc_ref = db.collection('WappSender').document('message-ids')
                                 doc_ref.update({'ids': []})
@@ -446,7 +428,8 @@ def webhook_post():
                                 send_txt_message(user_id, 'Request received!.')
                             except Exception as e:
                                 logging.error(f"Unexpected error: {e}")
-                                send_txt_message(user_id, f'An unexpected error: {e} occurred while broadcasting content to all groups')
+                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
+                                return jsonify({'status': 'ok'})
                         
                     elif upload_content_op['upload_content_mode']:
                         upload_content_op['content']['text']=text_message
@@ -493,7 +476,7 @@ def webhook_post():
                         if user_id not in login_op['login_users']:
                             send_txt_message(user_id,"Please log in first using /login.")
                             return jsonify({'status': 'ok'})
-                        exclude_op['groups-list']=get_groups_dict(user_id)
+                        exclude_op['groups-list']=get_groups_dict()
                         exclude_op['exclude_users'].clear()
                         output_string_1 = ''
                         output_string_2=''
@@ -509,7 +492,8 @@ def webhook_post():
                         send_txt_message(user_id,'Please provide the indices of the groups you wish to exclude from the broadcast, separated by commas (e.g., 1,2,3).')
                     except Exception as e:
                         logging.error(f"Unexpected error: {e}")
-                        send_txt_message(user_id, f"An unexpected error: {e} occurred while updating the group list using the /group_list command.")
+                        send_txt_message(user_id, f"Error: {e} occurred while updating the group list using the /group_list command.")
+                        return jsonify({'status': 'ok'})
 
             else:
                 if text_message == "/show_status" :
@@ -517,6 +501,7 @@ def webhook_post():
                 
                 elif text_message == "/terminate":
                     broadcast_op['terminate']=True
+    
     return jsonify({'status': 'ok'})
 
 @app.route('/health', methods=['GET'])
