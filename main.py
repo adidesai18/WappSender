@@ -37,7 +37,7 @@ cred_dict = {
   "universe_domain": "googleapis.com"
 }
 
-cred = credentials.Certificate('wappsender-key.json')
+cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -296,7 +296,7 @@ def upload_photo_in_background(update:dict,user_id:str):
         file_id=file['file_id']
         file_size=file['file_size']
         file_size_mb=bytes_to_mb(file_size)
-        if file_size_mb>15.8:
+        if file_size_mb>15.9:
             send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
             return
         send_txt_message(user_id,f"Photo received: {file_size_mb} MB")
@@ -313,7 +313,7 @@ def upload_video_in_background(update:dict,user_id:str):
         file_id=file['file_id']
         file_size=file['file_size']
         file_size_mb=bytes_to_mb(file_size)
-        if file_size_mb>15.8:
+        if file_size_mb>15.9:
             send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
             return
         send_txt_message(user_id,f"Video received: {file_size_mb} MB")
@@ -330,7 +330,7 @@ def upload_document_in_background(update:dict,user_id:str):
         file_id=file['file_id']
         file_size=file['file_size']
         file_size_mb=bytes_to_mb(file_size)
-        if file_size_mb>15.8:
+        if file_size_mb>15.9:
             send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
             return
         send_txt_message(user_id,f"Document received: {file_size_mb} MB")
