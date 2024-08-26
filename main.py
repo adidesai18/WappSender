@@ -89,7 +89,7 @@ def send_text(target:str,text:str):
             "body": text
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        print(response.json())
+        logging.info(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the text using the API.")
@@ -105,7 +105,7 @@ def send_image(target:str,cap:str,link:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        print(response.json())
+        logging.info(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the image using the API.")
@@ -121,7 +121,7 @@ def send_video(target:str,cap:str,link:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        print(response.json())
+        logging.info(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the video using the API.")
@@ -138,7 +138,7 @@ def send_document(target:str,cap:str,link:str,docname:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        print(response.json())
+        logging.info(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the document using the API.")
@@ -309,7 +309,7 @@ def webhook_post():
                         path=get_file_path(file_id)
                         upload_content_op['content']['photos'].append(path)
                         send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
-                        print(path)
+                        logging.info(path)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the photo upload process")
@@ -324,7 +324,7 @@ def webhook_post():
                         path=get_file_path(file_id)
                         upload_content_op['content']['videos'].append(path)
                         send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
-                        print(path)
+                        logging.info(path)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the video upload process")
@@ -340,7 +340,7 @@ def webhook_post():
                         path=get_file_path(file_id)
                         upload_content_op['content']['documents'].append({file_name:path})         
                         send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
-                        print(path)
+                        logging.info(path)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
