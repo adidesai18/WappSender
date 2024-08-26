@@ -89,10 +89,11 @@ def send_text(target:str,text:str):
             "body": text
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        print(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the text using the API.")
-        raise WappSenderError('{e} - in send_text()')
+        raise WappSenderError(f'{e} - in send_text()')
 
 def send_image(target:str,cap:str,link:str):
     try:
@@ -104,10 +105,11 @@ def send_image(target:str,cap:str,link:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        print(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the image using the API.")
-        raise WappSenderError('{e} - in send_image()')
+        raise WappSenderError(f'{e} - in send_image()')
 
 def send_video(target:str,cap:str,link:str):
     try:
@@ -119,10 +121,11 @@ def send_video(target:str,cap:str,link:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        print(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the video using the API.")
-        raise WappSenderError('{e} - in send_video()')
+        raise WappSenderError(f'{e} - in send_video()')
 
 def send_document(target:str,cap:str,link:str,docname:str):
     try:
@@ -135,10 +138,11 @@ def send_document(target:str,cap:str,link:str,docname:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        print(response.json())
         return response
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while sending the document using the API.")
-        raise WappSenderError('{e} - in send_document()')
+        raise WappSenderError(f'{e} - in send_document()')
 
 def send_to_groups(ids:list,content:dict,user_id:str):
     try:
@@ -169,8 +173,7 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                         for doc_dict in content['documents']:
                             key = list(doc_dict.keys())[0]
                             value = doc_dict[key]
-                            file_name = key
-                            send_document(id,'',value,file_name)
+                            send_document(id,'',value,key)
                 if 'text' in content and content['text']!=None:
                     if broadcast_op['terminate']:
                         pass
@@ -179,7 +182,7 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                 broadcast_op['group_count']+=1
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while broadcasting the message and content to the target list")
-        raise WappSenderError('{e} - in send_to_groups()')
+        raise WappSenderError(f'{e} - in send_to_groups()')
 
 def delete_messages(msgId:str):
     try:
@@ -193,7 +196,7 @@ def delete_messages(msgId:str):
         return response.json()
     except Exception as e:
         logging.error(f"An unexpected error: {e} occurred while deleting sent messages using the UltraMsg API.")
-        raise WappSenderError('{e} - in delete_messages()')
+        raise WappSenderError(f'{e} - in delete_messages()')
         
 def get_groups_dict():
     try:
@@ -210,7 +213,7 @@ def get_groups_dict():
         return groups_dict
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        raise WappSenderError('{e} - in get_groups_dict()')
+        raise WappSenderError(f'{e} - in get_groups_dict()')
 
 def clear_messages(status):
     try:
@@ -219,7 +222,7 @@ def clear_messages(status):
         requests.post(url, headers={'Content-Type': 'application/json'}, data=payload)
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        raise WappSenderError('{e} - in clear_messages()')
+        raise WappSenderError(f'{e} - in clear_messages()')
 
 def terminate(user_id):
     try:
@@ -234,7 +237,7 @@ def terminate(user_id):
         broadcast_op['terminate']=False
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
-        raise WappSenderError('{e} - in terminate()')
+        raise WappSenderError(f'{e} - in terminate()')
 
 # -----------------------------------------------------------
 
@@ -285,7 +288,7 @@ def send_in_background(target_ids, content, user_id, success_message):
             clear_content()
     except Exception as e:
         logging.error(f"Error: {e}")
-        raise WappSenderError('{e} - in send_in_background()')
+        raise WappSenderError(f'{e} - in send_in_background()')
         
 # -----------------------------------------------------------
 
@@ -304,8 +307,9 @@ def webhook_post():
                         file_size=file['file_size']
                         file_size_mb = bytes_to_mb(file_size)
                         path=get_file_path(file_id)
-                        upload_content_op['content']['videos'].append(path)
+                        upload_content_op['content']['photos'].append(path)
                         send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
+                        print(path)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the photo upload process")
@@ -320,6 +324,7 @@ def webhook_post():
                         path=get_file_path(file_id)
                         upload_content_op['content']['videos'].append(path)
                         send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
+                        print(path)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the video upload process")
@@ -333,8 +338,9 @@ def webhook_post():
                         file_size_mb = bytes_to_mb(file_size)
                         file_name=file['file_name']
                         path=get_file_path(file_id)
-                        upload_content_op['content']['videos'].append(path)         
+                        upload_content_op['content']['documents'].append({file_name:path})         
                         send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
+                        print(path)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
