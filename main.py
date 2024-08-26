@@ -37,7 +37,7 @@ cred_dict = {
   "universe_domain": "googleapis.com"
 }
 
-cred = credentials.Certificate(cred_dict)
+cred = credentials.Certificate('wappsender-key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -242,8 +242,8 @@ def terminate(user_id):
 # -----------------------------------------------------------
 
 def bytes_to_mb(byte_size: int) -> float:
-    """Convert bytes to megabytes."""
-    return byte_size / (1024 * 1024)
+    """Convert bytes to megabytes, rounded to two decimal places."""
+    return round(byte_size / (1024 * 1024), 2)
 
 def get_file_path(id:str):
     url = f"{telegram_api_url}/getFile?file_id={id}"
@@ -289,7 +289,58 @@ def send_in_background(target_ids, content, user_id, success_message):
     except Exception as e:
         logging.error(f"Error: {e}")
         raise WappSenderError(f'{e} - in send_in_background()')
-        
+
+def upload_photo_in_background(update:dict,user_id:str):
+    try:
+        file=update['message']['photo'][-1]
+        file_id=file['file_id']
+        file_size=file['file_size']
+        file_size_mb=bytes_to_mb(file_size)
+        if file_size_mb>15.8:
+            send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
+            return
+        send_txt_message(user_id,f"Photo received: {file_size_mb} MB")
+        path=get_file_path(file_id)
+        upload_content_op['content']['photos'].append(path)
+        logging.info(path)      
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        raise WappSenderError(f'{e} - in upload_photo_in_background()') 
+    
+def upload_video_in_background(update:dict,user_id:str):
+    try:
+        file=update['message']['video']
+        file_id=file['file_id']
+        file_size=file['file_size']
+        file_size_mb=bytes_to_mb(file_size)
+        if file_size_mb>15.8:
+            send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
+            return
+        send_txt_message(user_id,f"Video received: {file_size_mb} MB")
+        path=get_file_path(file_id)
+        upload_content_op['content']['videos'].append(path)
+        logging.info(path)      
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        raise WappSenderError(f'{e} - in upload_video_in_background()')
+    
+def upload_document_in_background(update:dict,user_id:str):
+    try:
+        file=update['message']['document']
+        file_id=file['file_id']
+        file_size=file['file_size']
+        file_size_mb=bytes_to_mb(file_size)
+        if file_size_mb>15.8:
+            send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
+            return
+        send_txt_message(user_id,f"Document received: {file_size_mb} MB")
+        file_name=file['file_name']
+        path=get_file_path(file_id)
+        upload_content_op['content']['documents'].append({file_name:path})         
+        logging.info(path)      
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        raise WappSenderError(f'{e} - in upload_document_in_background()')
 # -----------------------------------------------------------
 
 @app.route('/', methods=['POST'])
@@ -302,14 +353,8 @@ def webhook_post():
             if upload_content_op['upload_content_mode'] and not broadcast_op['main_loop_mood']:
                 if 'photo' in update['message']:
                     try:
-                        file=update['message']['photo'][-1]
-                        file_id=file['file_id']
-                        file_size=file['file_size']
-                        file_size_mb = bytes_to_mb(file_size)
-                        path=get_file_path(file_id)
-                        upload_content_op['content']['photos'].append(path)
-                        send_txt_message(user_id,f"Photo received!\nSize: {file_size_mb:.2f} MB")
-                        logging.info(path)
+                        thread = Thread(target=upload_photo_in_background, args=(update, user_id,))
+                        thread.start()
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the photo upload process")
@@ -317,14 +362,8 @@ def webhook_post():
                         
                 elif 'video' in update['message']:
                     try:
-                        file=update['message']['video']
-                        file_id=file['file_id']
-                        file_size=file['file_size']
-                        file_size_mb = bytes_to_mb(file_size)
-                        path=get_file_path(file_id)
-                        upload_content_op['content']['videos'].append(path)
-                        send_txt_message(user_id,f"Video received!\nSize: {file_size_mb:.2f} MB")
-                        logging.info(path)
+                        thread = Thread(target=upload_video_in_background, args=(update, user_id,))
+                        thread.start()
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the video upload process")
@@ -332,15 +371,8 @@ def webhook_post():
                     
                 elif 'document' in update['message']:
                     try:
-                        file=update['message']['document']
-                        file_id=file['file_id']
-                        file_size=file['file_size']
-                        file_size_mb = bytes_to_mb(file_size)
-                        file_name=file['file_name']
-                        path=get_file_path(file_id)
-                        upload_content_op['content']['documents'].append({file_name:path})         
-                        send_txt_message(user_id,f"Document received!\nSize: {file_size_mb:.2f} MB")
-                        logging.info(path)
+                        thread = Thread(target=upload_document_in_background, args=(update, user_id,))
+                        thread.start()
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
