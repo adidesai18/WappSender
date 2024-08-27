@@ -8,8 +8,12 @@ import json
 from threading import Thread
 import time
 import logging
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
+executor = ThreadPoolExecutor(max_workers=8)
+
 
 wappsender = os.getenv('wappsender')
 bot_token = os.getenv('bot_token')
@@ -199,6 +203,7 @@ def delete_messages(msgId:str):
     except Exception as e:
         raise WappSenderError(f'{e} - in delete_messages()')
         
+@lru_cache(maxsize=1)        
 def get_groups_dict():
     try:
         url = f"https://api.ultramsg.com/{instance}/groups"
@@ -265,29 +270,35 @@ def send_txt_message(chat_id, text):
         logging.error(f"Error: {e} occurred while sending the text message through the Telegram bot.")
 
 def clear_content():
-    upload_content_op['content']['photos']=[]
-    upload_content_op['content']['videos']=[]
-    upload_content_op['content']['documents']=[]
-    upload_content_op['content']['text']=None
-    upload_content_op['upload_content_mode']=False
-    broadcast_op['broadcast_mode']=False
-    broadcast_op['group_count']=0
-    broadcast_op['groups_len']=0
+    # Clear upload content
+    upload_content_op['content'] = {
+        'photos': [],
+        'videos': [],
+        'documents': [],
+        'text': None
+    }
+    upload_content_op['upload_content_mode'] = False
+    
+    # Reset broadcast operation parameters
+    broadcast_op.update({
+        'broadcast_mode': False,
+        'group_count': 0,
+        'groups_len': 0,
+        'main_loop_mood': False
+    })
 
 def send_in_background(target_ids, content, user_id, success_message):
+    broadcast_op['main_loop_mood'] = True
     try:
-        broadcast_op['main_loop_mood'] = True
         send_to_groups(target_ids, content,user_id)
         if broadcast_op['terminate']:
             send_txt_message(user_id, "Process of termination in under pocess!!!!")
         else:
             send_txt_message(user_id, success_message)
-            broadcast_op['main_loop_mood'] = False
-            clear_content()
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in send_in_background()')
-        broadcast_op['main_loop_mood'] = False
-        clear_content()
+    broadcast_op['main_loop_mood'] = False
+    clear_content()
 
 def upload_photo_in_background(update:dict,user_id:str):
     try:
@@ -349,8 +360,7 @@ def webhook_post():
             if upload_content_op['upload_content_mode'] and not broadcast_op['main_loop_mood']:
                 if 'photo' in update['message']:
                     try:
-                        thread = Thread(target=upload_photo_in_background, args=(update, user_id,))
-                        thread.start()
+                        executor.submit(upload_photo_in_background, update, user_id)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the photo upload process")
@@ -358,8 +368,7 @@ def webhook_post():
                         
                 elif 'video' in update['message']:
                     try:
-                        thread = Thread(target=upload_video_in_background, args=(update, user_id,))
-                        thread.start()
+                        executor.submit(upload_video_in_background, update, user_id)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the video upload process")
@@ -367,8 +376,7 @@ def webhook_post():
                     
                 elif 'document' in update['message']:
                     try:
-                        thread = Thread(target=upload_document_in_background, args=(update, user_id,))
-                        thread.start()
+                        executor.submit(upload_document_in_background, update, user_id)
                     except Exception as e:
                             logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
@@ -420,12 +428,13 @@ def webhook_post():
                             try:
                                 send_to_groups(['+917720063009'], upload_content_op['content'],user_id)
                                 send_txt_message(user_id, 'The message has been successfully sent to Aditya.')
-                                upload_content_op['upload_content_mode'] = True
-                                broadcast_op['main_loop_mood'] = False
-                            except Exception as e:
+                            except Exception as e:         
                                 logging.error(f"Unexpected error: {e}")
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to Aditya')
                                 return jsonify({'status': 'ok'})
+                            broadcast_op['main_loop_mood'] = False
+                            upload_content_op['upload_content_mode'] = True        
+                            broadcast_op['broadcast_mode'] = False
                         
                         elif text_message == '2':
                             try:
@@ -438,15 +447,14 @@ def webhook_post():
                                             target_list.append(id)
                                     doc_ref = db.collection('WappSender').document('message-ids')
                                     doc_ref.update({'ids': []})
-                                    thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.'))
-                                    thread.start()
+                                    executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.')
                                     send_txt_message(user_id, 'Request received!.')
                                 else:
                                     send_txt_message(user_id, 'Please use the /group_list command to select the groups you wish to exclude from broadcasting.')
                                     broadcast_op['broadcast_mode'] = False
-                                    upload_content_op['upload_content_mode'] = True
+                                    upload_content_op['upload_content_mode'] = True                
                             except Exception as e:
-                                logging.error(f"Unexpected error: {e}")
+                                clear_content()
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to selected groups')
                                 return jsonify({'status': 'ok'})
 
@@ -457,11 +465,10 @@ def webhook_post():
                                     target_list.append(id)
                                 doc_ref = db.collection('WappSender').document('message-ids')
                                 doc_ref.update({'ids': []})
-                                thread = Thread(target=send_in_background, args=(target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.'))
-                                thread.start()
+                                executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.')
                                 send_txt_message(user_id, 'Request received!.')
                             except Exception as e:
-                                logging.error(f"Unexpected error: {e}")
+                                clear_content()
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
                                 return jsonify({'status': 'ok'})
                         
@@ -510,8 +517,8 @@ def webhook_post():
                         if user_id not in login_op['login_users']:
                             send_txt_message(user_id,"Please log in first using /login.")
                             return jsonify({'status': 'ok'})
-                        exclude_op['groups-list']=get_groups_dict()
                         exclude_op['exclude_users'].clear()
+                        exclude_op['groups-list']=get_groups_dict()   
                         output_string_1 = ''
                         output_string_2=''
                         # Building the output string
@@ -540,6 +547,13 @@ def webhook_post():
 
 @app.route('/health', methods=['GET'])
 def health_check():
+    response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
+    response.headers['Content-Type'] = 'application/json'
+    return response, 200
+
+@app.route('/clear', methods=['GET'])
+def health_check():
+    get_groups_dict.cache_clear()
     response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
     response.headers['Content-Type'] = 'application/json'
     return response, 200
