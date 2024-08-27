@@ -552,7 +552,7 @@ def health_check():
     return response, 200
 
 @app.route('/clear', methods=['GET'])
-def health_check():
+def cache_clear():
     get_groups_dict.cache_clear()
     response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
     response.headers['Content-Type'] = 'application/json'
