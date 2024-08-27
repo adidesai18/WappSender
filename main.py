@@ -89,10 +89,9 @@ def send_text(target:str,text:str):
             "body": text
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        logging.info(response.json())
+        logging.info(response.text)
         return response
     except Exception as e:
-        logging.error(f"An unexpected error: {e} occurred while sending the text using the API.")
         raise WappSenderError(f'{e} - in send_text()')
 
 def send_image(target:str,cap:str,link:str):
@@ -105,10 +104,9 @@ def send_image(target:str,cap:str,link:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        logging.info(response.json())
+        logging.info(response.text)
         return response
     except Exception as e:
-        logging.error(f"An unexpected error: {e} occurred while sending the image using the API.")
         raise WappSenderError(f'{e} - in send_image()')
 
 def send_video(target:str,cap:str,link:str):
@@ -121,10 +119,9 @@ def send_video(target:str,cap:str,link:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        logging.info(response.json())
+        logging.info(response.text)
         return response
     except Exception as e:
-        logging.error(f"An unexpected error: {e} occurred while sending the video using the API.")
         raise WappSenderError(f'{e} - in send_video()')
 
 def send_document(target:str,cap:str,link:str,docname:str):
@@ -138,10 +135,9 @@ def send_document(target:str,cap:str,link:str,docname:str):
             "caption": cap,
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
-        logging.info(response.json())
+        logging.info(response.text)
         return response
     except Exception as e:
-        logging.error(f"An unexpected error: {e} occurred while sending the document using the API.")
         raise WappSenderError(f'{e} - in send_document()')
 
 def send_to_groups(ids:list,content:dict,user_id:str):
@@ -181,7 +177,6 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                         send_text(id,content['text'])
                 broadcast_op['group_count']+=1
     except Exception as e:
-        logging.error(f"An unexpected error: {e} occurred while broadcasting the message and content to the target list")
         raise WappSenderError(f'{e} - in send_to_groups()')
 
 def delete_messages(msgId:str):
@@ -193,9 +188,9 @@ def delete_messages(msgId:str):
         })
 
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        logging.info(response.text)
         return response.json()
     except Exception as e:
-        logging.error(f"An unexpected error: {e} occurred while deleting sent messages using the UltraMsg API.")
         raise WappSenderError(f'{e} - in delete_messages()')
         
 def get_groups_dict():
@@ -212,7 +207,6 @@ def get_groups_dict():
             groups_dict[group['id']]=group['name']
         return groups_dict
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
         raise WappSenderError(f'{e} - in get_groups_dict()')
 
 def clear_messages(status):
@@ -221,7 +215,6 @@ def clear_messages(status):
         payload = json.dumps({"token": wapp_token, "status": status})
         requests.post(url, headers={'Content-Type': 'application/json'}, data=payload)
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
         raise WappSenderError(f'{e} - in clear_messages()')
 
 def terminate(user_id):
@@ -236,7 +229,6 @@ def terminate(user_id):
         broadcast_op['main_loop_mood'] = False
         broadcast_op['terminate']=False
     except Exception as e:
-        logging.error(f"Unexpected error: {e}")
         raise WappSenderError(f'{e} - in terminate()')
 
 # -----------------------------------------------------------
@@ -264,7 +256,7 @@ def send_txt_message(chat_id, text):
         }
         return requests.post(f"{telegram_api_url}/sendMessage", json=payload).json()
     except Exception as e:
-        logging.error(f"An unexpected error: {e} occurred while sending the text message through the Telegram bot.")
+        logging.error(f"Error: {e} occurred while sending the text message through the Telegram bot.")
 
 def clear_content():
     upload_content_op['content']['photos']=[]
@@ -287,8 +279,7 @@ def send_in_background(target_ids, content, user_id, success_message):
             broadcast_op['main_loop_mood'] = False
             clear_content()
     except Exception as e:
-        logging.error(f"Error: {e}")
-        raise WappSenderError(f'{e} - in send_in_background()')
+        send_txt_message(user_id, f'Error: {e} - in send_in_background()')
 
 def upload_photo_in_background(update:dict,user_id:str):
     try:
@@ -304,8 +295,7 @@ def upload_photo_in_background(update:dict,user_id:str):
         upload_content_op['content']['photos'].append(path)
         logging.info(path)      
     except Exception as e:
-        logging.error(f"Error: {e}")
-        raise WappSenderError(f'{e} - in upload_photo_in_background()') 
+        send_txt_message(user_id, f'Error: {e} - in upload_photo_in_background()')
     
 def upload_video_in_background(update:dict,user_id:str):
     try:
@@ -321,8 +311,7 @@ def upload_video_in_background(update:dict,user_id:str):
         upload_content_op['content']['videos'].append(path)
         logging.info(path)      
     except Exception as e:
-        logging.error(f"Error: {e}")
-        raise WappSenderError(f'{e} - in upload_video_in_background()')
+        send_txt_message(user_id, f'Error: {e} - in upload_video_in_background()')
     
 def upload_document_in_background(update:dict,user_id:str):
     try:
@@ -339,8 +328,7 @@ def upload_document_in_background(update:dict,user_id:str):
         upload_content_op['content']['documents'].append({file_name:path})         
         logging.info(path)      
     except Exception as e:
-        logging.error(f"Error: {e}")
-        raise WappSenderError(f'{e} - in upload_document_in_background()')
+        send_txt_message(user_id, f'Error: {e} - in upload_document_in_background()')
 # -----------------------------------------------------------
 
 @app.route('/', methods=['POST'])
