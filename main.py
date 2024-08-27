@@ -73,7 +73,10 @@ broadcast_op={
     'main_loop_mood':False,
     'group_count':0,
     'groups_len':0,
-    'terminate':False
+    'terminate':False,
+    'error_target':None,
+    'error_target_index':None,
+    'error_resend_list':None
 }
 
 bot_commands_list=['/start','/login','/upload_content','/clear_content','/broadcast','/group_list','/show_status']
@@ -90,8 +93,8 @@ def send_text(target:str,text:str):
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
-        return response
     except Exception as e:
+        broadcast_op['error_target']=target
         raise WappSenderError(f'{e} - in send_text()')
 
 def send_image(target:str,cap:str,link:str):
@@ -105,8 +108,8 @@ def send_image(target:str,cap:str,link:str):
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
-        return response
     except Exception as e:
+        broadcast_op['error_target']=target
         raise WappSenderError(f'{e} - in send_image()')
 
 def send_video(target:str,cap:str,link:str):
@@ -120,8 +123,8 @@ def send_video(target:str,cap:str,link:str):
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
-        return response
     except Exception as e:
+        broadcast_op['error_target']=target
         raise WappSenderError(f'{e} - in send_video()')
 
 def send_document(target:str,cap:str,link:str,docname:str):
@@ -136,8 +139,8 @@ def send_document(target:str,cap:str,link:str,docname:str):
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
-        return response
     except Exception as e:
+        broadcast_op['error_target']=target
         raise WappSenderError(f'{e} - in send_document()')
 
 def send_to_groups(ids:list,content:dict,user_id:str):
@@ -177,6 +180,9 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                         send_text(id,content['text'])
                 broadcast_op['group_count']+=1
     except Exception as e:
+        broadcast_op['error_target_index']=ids.index(broadcast_op['error_target'])
+        broadcast_op['error_resend_list']=ids[broadcast_op['error_target_index']:]
+        logging.info(broadcast_op['error_resend_list'])
         raise WappSenderError(f'{e} - in send_to_groups()')
 
 def delete_messages(msgId:str):
@@ -280,6 +286,8 @@ def send_in_background(target_ids, content, user_id, success_message):
             clear_content()
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in send_in_background()')
+        broadcast_op['main_loop_mood'] = False
+        clear_content()
 
 def upload_photo_in_background(update:dict,user_id:str):
     try:
