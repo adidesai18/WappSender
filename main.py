@@ -14,7 +14,6 @@ from concurrent.futures import ThreadPoolExecutor
 load_dotenv()
 executor = ThreadPoolExecutor(max_workers=8)
 
-
 wappsender = os.getenv('wappsender')
 bot_token = os.getenv('bot_token')
 telegram_api_url = f"https://api.telegram.org/bot{bot_token}"
@@ -270,16 +269,21 @@ def send_txt_message(chat_id, text):
         logging.error(f"Error: {e} occurred while sending the text message through the Telegram bot.")
 
 def clear_content():
-    # Clear upload content
+    
+    exclude_op.update({
+    'exclude_mode':False,
+    'exclude_users':[]
+    })
+
     upload_content_op['content'] = {
         'photos': [],
         'videos': [],
         'documents': [],
         'text': None
     }
+
     upload_content_op['upload_content_mode'] = False
-    
-    # Reset broadcast operation parameters
+
     broadcast_op.update({
         'broadcast_mode': False,
         'group_count': 0,
