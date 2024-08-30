@@ -81,7 +81,7 @@ broadcast_op={
     'error_resend_list':None
 }
 
-bot_commands_list=['/start','/login','/upload_content','/clear_content','/broadcast','/group_list','/show_status']
+bot_commands_list=['/start','/login','/upload_content','/clear_content','/broadcast','/exclude_users','/clear_excluded_users','/show_status','/terminate']
 
 # -----------------------------------------------------------
 
