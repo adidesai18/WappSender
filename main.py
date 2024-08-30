@@ -267,11 +267,6 @@ def send_txt_message(chat_id, text):
         logging.error(f"Error: {e} occurred while sending the text message through the Telegram bot.")
 
 def clear_content():
-    
-    exclude_op.update({
-    'exclude_mode':False,
-    'exclude_users':[]
-    })
 
     upload_content_op['content'] = {
         'photos': [],
@@ -527,7 +522,7 @@ def webhook_post():
                     broadcast_op['broadcast_mode']=True
                     return jsonify({'status': 'ok'})
                     
-                elif text_message == '/group_list':
+                elif text_message == '/exclude_users':
                     try:
                         if user_id not in login_op['login_users']:
                             send_txt_message(user_id,"Please log in first using /login.")
@@ -548,7 +543,15 @@ def webhook_post():
                         send_txt_message(user_id,'Please provide the indices of the groups you wish to exclude from the broadcast, separated by commas (e.g., 1,2,3).')
                     except Exception as e:
                         send_txt_message(user_id, f"Error: {e} occurred while updating the group list using the /group_list command.")
-                    return jsonify({'status': 'ok'})      
+                    return jsonify({'status': 'ok'}) 
+
+                elif text_message == "/clear_excluded_users":
+                    if not user_id in login_op['login_users']:
+                        send_txt_message(user_id, "Hello! I am WappSender,\nI am here to help you with WhatsApp broadcasting.\nTo get started, please /login to use the bot.")
+                    else:
+                        exclude_op.update({'exclude_mode':False,'exclude_users':[]})
+                        send_txt_message(user_id,"The list of excluded users has been reset.")
+                    return jsonify({'status': 'ok'})     
 
                 elif text_message == "/terminate":
                     try:
