@@ -402,14 +402,11 @@ def webhook_post():
 
                     elif exclude_op['exclude_mode']:
                         try:
-                            message = update['message']['text']
-                            list_of_strings = message.split(',')
+                            list_of_strings = text_message.split(',')
                             
-                            # Validate and convert strings to integers
                             list_of_numbers = [int(num) - 1 for num in list_of_strings]
                             keys_list = list(exclude_op['groups-list'].keys())
 
-                            # Validate indices
                             for index in list_of_numbers:
                                 key_to_remove = keys_list[index]
                                 exclude_op['exclude_users'].append(key_to_remove)
