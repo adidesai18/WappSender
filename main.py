@@ -5,7 +5,6 @@ import firebase_admin
 from dotenv import load_dotenv
 from firebase_admin import credentials, firestore
 import json
-from threading import Thread
 import time
 import logging
 from functools import lru_cache
@@ -152,8 +151,8 @@ def send_to_groups(ids:list,content:dict,user_id:str):
         for id in ids:
             if broadcast_op['terminate']:
                 clear_content()
-                thread = Thread(target=terminate, args=(user_id,))
-                thread.start()
+                executor.submit(terminate,  user_id)
+                send_txt_message(user_id,'Termination process initiated!!!!')
                 break
             else:
                 if 'photos' in content:
@@ -195,7 +194,6 @@ def delete_messages(msgId:str):
             "token": wapp_token,
             "msgId": msgId
         })
-
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
         return response.json()
@@ -296,13 +294,23 @@ def send_in_background(target_ids, content, user_id, success_message):
     try:
         send_to_groups(target_ids, content,user_id)
         if broadcast_op['terminate']:
-            send_txt_message(user_id, "Process of termination in under pocess!!!!")
+            send_txt_message(user_id, "Process of termination in under process!!!!")
         else:
             send_txt_message(user_id, success_message)
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in send_in_background()')
     broadcast_op['main_loop_mood'] = False
     clear_content()
+
+def terminate_in_background(user_id):
+    broadcast_op['main_loop_mood'] = True
+    try:
+        clear_content()
+        executor.submit(terminate,  user_id)
+    except Exception as e:
+        send_txt_message(user_id, f'Error: {e} - in terminate_in_background()')
+        broadcast_op['main_loop_mood'] = False
+        broadcast_op['terminate']=False
 
 def upload_photo_in_background(update:dict,user_id:str):
     try:
@@ -366,29 +374,26 @@ def webhook_post():
                     try:
                         executor.submit(upload_photo_in_background, update, user_id)
                     except Exception as e:
-                            logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the photo upload process")
-                            return jsonify({'status': 'ok'})
+                    return jsonify({'status': 'ok'})
                         
                 elif 'video' in update['message']:
                     try:
                         executor.submit(upload_video_in_background, update, user_id)
                     except Exception as e:
-                            logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the video upload process")
-                            return jsonify({'status': 'ok'})
+                    return jsonify({'status': 'ok'})
                     
                 elif 'document' in update['message']:
                     try:
                         executor.submit(upload_document_in_background, update, user_id)
                     except Exception as e:
-                            logging.error(f"Unexpected error: {e}")
                             send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
-                            return jsonify({'status': 'ok'})
+                    return jsonify({'status': 'ok'})
             
         elif 'text' in update['message']:
             text_message=update['message']['text']
-
+            
             if not broadcast_op['main_loop_mood']:
                 if text_message not in bot_commands_list:
                     if login_op['login_mode']:
@@ -398,6 +403,7 @@ def webhook_post():
                             login_op['login_mode']=False
                         else:
                             send_txt_message(user_id,"Invalid password. Please try again:")
+                        return jsonify({'status': 'ok'})
 
                     elif exclude_op['exclude_mode']:
                         try:
@@ -422,8 +428,8 @@ def webhook_post():
                             exclude_op['exclude_mode'] = False
 
                         except Exception as e:
-                            logging.error(f"Unexpected error: {e}")
-                            send_txt_message(user_id, f"An unexpected error: {e} occurred while excluding selected groups from the main broadcast list")
+                            send_txt_message(user_id, f"Error: {e} occurred while excluding selected groups from the main broadcast list")
+                        return jsonify({'status': 'ok'})
                     
                     elif broadcast_op['broadcast_mode']:
 
@@ -433,12 +439,11 @@ def webhook_post():
                                 send_to_groups(['+917720063009'], upload_content_op['content'],user_id)
                                 send_txt_message(user_id, 'The message has been successfully sent to Aditya.')
                             except Exception as e:         
-                                logging.error(f"Unexpected error: {e}")
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to Aditya')
-                                return jsonify({'status': 'ok'})
                             broadcast_op['main_loop_mood'] = False
                             upload_content_op['upload_content_mode'] = True        
                             broadcast_op['broadcast_mode'] = False
+                            return jsonify({'status': 'ok'})
                         
                         elif text_message == '2':
                             try:
@@ -460,7 +465,7 @@ def webhook_post():
                             except Exception as e:
                                 clear_content()
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to selected groups')
-                                return jsonify({'status': 'ok'})
+                            return jsonify({'status': 'ok'})
 
                         elif text_message == '1':
                             target_list = []
@@ -474,17 +479,19 @@ def webhook_post():
                             except Exception as e:
                                 clear_content()
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
-                                return jsonify({'status': 'ok'})
+                            return jsonify({'status': 'ok'})
                         
                     elif upload_content_op['upload_content_mode']:
                         upload_content_op['content']['text']=text_message
                         send_txt_message(user_id,f'Text message received!')
+                        return jsonify({'status': 'ok'})
 
                 elif text_message == "/start":
                     if not user_id in login_op['login_users']:
                         send_txt_message(user_id, "Hello! I am WappSender,\nI am here to help you with WhatsApp broadcasting.\nTo get started, please /login to use the bot.")
                     else:
                         send_txt_message(user_id,"Welcome back! You are already logged in.")
+                    return jsonify({'status': 'ok'})
 
                 elif text_message == "/login":
                     if user_id in login_op['login_users']:
@@ -492,6 +499,7 @@ def webhook_post():
                         return jsonify({'status': 'ok'})
                     send_txt_message(user_id,'Please enter the password to login:')
                     login_op['login_mode']=True
+                    return jsonify({'status': 'ok'})
                 
                 elif text_message == '/upload_content':
                     if user_id not in login_op['login_users']:
@@ -500,6 +508,7 @@ def webhook_post():
                     clear_content()
                     send_txt_message(user_id,'To send photos, videos, documents, or text messages, please enter the media or text you would like to broadcast.')
                     upload_content_op['upload_content_mode']=True
+                    return jsonify({'status': 'ok'})
 
                 elif text_message == '/clear_content':
                     if user_id not in login_op['login_users']:
@@ -507,6 +516,7 @@ def webhook_post():
                         return jsonify({'status': 'ok'})
                     clear_content()
                     send_txt_message(user_id,'The media list has been successfully cleared.')
+                    return jsonify({'status': 'ok'})
 
                 elif text_message == '/broadcast':
                     if not upload_content_op['upload_content_mode']:
@@ -515,6 +525,7 @@ def webhook_post():
                     upload_content_op['upload_content_mode']=False
                     send_txt_message(user_id,'1. Send a message to all groups\n2. Send a message to selected groups\n3. Send a message to Aditya')
                     broadcast_op['broadcast_mode']=True
+                    return jsonify({'status': 'ok'})
                     
                 elif text_message == '/group_list':
                     try:
@@ -536,31 +547,37 @@ def webhook_post():
                         send_txt_message(user_id,output_string_2)
                         send_txt_message(user_id,'Please provide the indices of the groups you wish to exclude from the broadcast, separated by commas (e.g., 1,2,3).')
                     except Exception as e:
-                        logging.error(f"Unexpected error: {e}")
                         send_txt_message(user_id, f"Error: {e} occurred while updating the group list using the /group_list command.")
-                        return jsonify({'status': 'ok'})
+                    return jsonify({'status': 'ok'})      
+
+                elif text_message == "/terminate":
+                    try:
+                        executor.submit(terminate_in_background, user_id)
+                        send_txt_message(user_id,'Termination process initiated!!!!')
+                    except Exception as e:
+                        send_txt_message(user_id, f'Error: {e} occurred while initiating terminate_in_background()')
+                        clear_content()
+                    return jsonify({'status': 'ok'})         
 
             else:
                 if text_message == "/show_status" :
                     send_txt_message(user_id, f"{broadcast_op['group_count']}/{broadcast_op['groups_len']}")
+                    return jsonify({'status': 'ok'})
                 
                 elif text_message == "/terminate":
                     broadcast_op['terminate']=True
+                    return jsonify({'status': 'ok'})
     
     return jsonify({'status': 'ok'})
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
-    response.headers['Content-Type'] = 'application/json'
-    return response, 200
+    return jsonify({'status': 'ok', 'message': 'Service is healthy'}), 200
 
 @app.route('/clear', methods=['GET'])
 def cache_clear():
     get_groups_dict.cache_clear()
-    response = jsonify({'status': 'ok', 'message': 'Service is healthy'})
-    response.headers['Content-Type'] = 'application/json'
-    return response, 200
+    return jsonify({'status': 'ok', 'message': 'Service is healthy'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
