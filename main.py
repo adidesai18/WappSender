@@ -4,6 +4,7 @@ import os
 import firebase_admin
 from dotenv import load_dotenv
 from firebase_admin import credentials, firestore
+from firebase_admin.firestore import firestore as fs
 import json
 import time
 import logging
@@ -56,8 +57,7 @@ login_op={
 }
 
 exclude_op={
-    'exclude_mode':False,
-    'exclude_users':[]
+    'exclude_mode':False
 }
 
 upload_content_op={
@@ -81,7 +81,7 @@ broadcast_op={
     'error_resend_list':None
 }
 
-bot_commands_list=['/start','/login','/upload_content','/clear_content','/broadcast','/exclude_users','/clear_excluded_users','/show_status','/terminate']
+bot_commands_list=['/start','/login','/upload_content','/clear_content','/broadcast','/exclude_users','/show_status','/terminate']
 
 # -----------------------------------------------------------
 
@@ -239,6 +239,13 @@ def terminate(user_id):
     except Exception as e:
         raise WappSenderError(f'{e} - in terminate()')
 
+@lru_cache(maxsize=1)        
+def get_excluded_users():
+    try:
+        excluded_user = db.collection('WappSender').document('exclude_user').get().get('ids')
+        return list(excluded_user)
+    except Exception as e:
+        raise WappSenderError(f'{e} - in get_excluded_users()')
 # -----------------------------------------------------------
 
 def bytes_to_mb(byte_size: int) -> float:
@@ -405,16 +412,18 @@ def webhook_post():
                             list_of_strings = text_message.split(',')
                             
                             list_of_numbers = [int(num) - 1 for num in list_of_strings]
-                            keys_list = list(exclude_op['groups-list'].keys())
+                            keys_list = list(exclude_op['groups_list'].keys())
 
                             for index in list_of_numbers:
-                                key_to_remove = keys_list[index]
-                                exclude_op['exclude_users'].append(key_to_remove)
-
+                                db.collection('WappSender').document('exclude_user').update({
+                                    'ids': fs.ArrayUnion([keys_list[index]])
+                                })
+                                
                             # Construct excluded groups message
                             excluded_groups = ''
-                            for group in exclude_op['exclude_users']:
-                                excluded_groups += exclude_op['groups-list'][group] + '\n'
+                            get_excluded_users.cache_clear()
+                            for group in get_excluded_users():
+                                excluded_groups += exclude_op['groups_list'][group] + '\n'
 
                             send_txt_message(user_id, f'Excluded groups are:\n{excluded_groups.strip()}')
                             exclude_op['exclude_mode'] = False
@@ -428,7 +437,7 @@ def webhook_post():
                         if text_message == '3':
                             broadcast_op['main_loop_mood'] = True
                             try:
-                                send_to_groups(['+917720063009'], upload_content_op['content'],user_id)
+                                send_to_groups(['+917020805020'], upload_content_op['content'],user_id)
                                 send_txt_message(user_id, 'The message has been successfully sent to Aditya.')
                             except Exception as e:         
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to Aditya')
@@ -439,19 +448,21 @@ def webhook_post():
                         
                         elif text_message == '2':
                             try:
-                                if exclude_op['exclude_users']:
+                                excluded_users=get_excluded_users()                             
+                                if excluded_users:
                                     target_list = []
                                     for id in get_groups_dict().keys():
-                                        if id in exclude_op['exclude_users']:
+                                        if id in excluded_users:
                                             pass
                                         else:
                                             target_list.append(id)
-                                    doc_ref = db.collection('WappSender').document('message-ids')
-                                    doc_ref.update({'ids': []})
+                                    doc_message = db.collection('WappSender').document('message-ids')
+                                    doc_message.update({'ids': []})
                                     executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.')
                                     send_txt_message(user_id, 'Request received!.')
                                 else:
-                                    send_txt_message(user_id, 'Please use the /group_list command to select the groups you wish to exclude from broadcasting.')
+                                    get_excluded_users.cache_clear()
+                                    send_txt_message(user_id, 'Please use the /exclude_users command to select the groups you wish to exclude from broadcasting.')
                                     broadcast_op['broadcast_mode'] = False
                                     upload_content_op['upload_content_mode'] = True                
                             except Exception as e:
@@ -464,8 +475,8 @@ def webhook_post():
                             try:
                                 for id in get_groups_dict().keys():
                                     target_list.append(id)
-                                doc_ref = db.collection('WappSender').document('message-ids')
-                                doc_ref.update({'ids': []})
+                                doc_message = db.collection('WappSender').document('message-ids')
+                                doc_message.update({'ids': []})
                                 executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.')
                                 send_txt_message(user_id, 'Request received!.')
                             except Exception as e:
@@ -524,12 +535,11 @@ def webhook_post():
                         if user_id not in login_op['login_users']:
                             send_txt_message(user_id,"Please log in first using /login.")
                             return jsonify({'status': 'ok'})
-                        exclude_op['exclude_users'].clear()
-                        exclude_op['groups-list']=get_groups_dict()   
+                        exclude_op['groups_list']=get_groups_dict()   
                         output_string_1 = ''
                         output_string_2=''
                         # Building the output string
-                        for index, value in enumerate(exclude_op['groups-list'].values()):
+                        for index, value in enumerate(exclude_op['groups_list'].values()):
                             if index<100:
                                 output_string_1 += f"{index+1}:  {value}\n"
                             else:
@@ -540,15 +550,7 @@ def webhook_post():
                         send_txt_message(user_id,'Please provide the indices of the groups you wish to exclude from the broadcast, separated by commas (e.g., 1,2,3).')
                     except Exception as e:
                         send_txt_message(user_id, f"Error: {e} occurred while updating the group list using the /group_list command.")
-                    return jsonify({'status': 'ok'}) 
-
-                elif text_message == "/clear_excluded_users":
-                    if not user_id in login_op['login_users']:
-                        send_txt_message(user_id, "Hello! I am WappSender,\nI am here to help you with WhatsApp broadcasting.\nTo get started, please /login to use the bot.")
-                    else:
-                        exclude_op.update({'exclude_mode':False,'exclude_users':[]})
-                        send_txt_message(user_id,"The list of excluded users has been reset.")
-                    return jsonify({'status': 'ok'})     
+                    return jsonify({'status': 'ok'})      
 
                 elif text_message == "/terminate":
                     try:
@@ -577,6 +579,7 @@ def health_check():
 @app.route('/clear', methods=['GET'])
 def cache_clear():
     get_groups_dict.cache_clear()
+    get_excluded_users.cache_clear()
     return jsonify({'status': 'ok', 'message': 'Service is healthy'}), 200
 
 if __name__ == '__main__':
