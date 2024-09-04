@@ -485,8 +485,12 @@ def webhook_post():
                             return jsonify({'status': 'ok'})
                         
                     elif upload_content_op['upload_content_mode']:
-                        upload_content_op['content']['text']=text_message
-                        send_txt_message(user_id,f'Text message received!')
+                        if text_message.startswith('&'):
+                            upload_content_op['content']['videos'].append(text_message.lstrip('&'))
+                            send_txt_message(user_id,"Video received")
+                        else:
+                            upload_content_op['content']['text']=text_message
+                            send_txt_message(user_id,'Text message received!')
                         return jsonify({'status': 'ok'})
 
                 elif text_message == "/start":
@@ -580,6 +584,8 @@ def health_check():
 def cache_clear():
     get_groups_dict.cache_clear()
     get_excluded_users.cache_clear()
+    get_excluded_users()
+    get_groups_dict()
     return jsonify({'status': 'ok', 'message': 'Service is healthy'}), 200
 
 if __name__ == '__main__':
