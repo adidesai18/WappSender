@@ -584,9 +584,9 @@ def health_check():
 def cache_clear():
     get_groups_dict.cache_clear()
     get_excluded_users.cache_clear()
-    get_excluded_users()
-    get_groups_dict()
-    return jsonify({'status': 'ok', 'message': 'Service is healthy'}), 200
+    excluded_user_var=get_excluded_users()
+    groups_var=get_groups_dict()
+    return jsonify({'Excluded_Users': excluded_user_var, 'WhatsGropp': groups_var}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
