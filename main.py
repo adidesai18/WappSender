@@ -199,6 +199,25 @@ def delete_messages(msgId:str):
         return response.json()
     except Exception as e:
         raise WappSenderError(f'{e} - in delete_messages()')
+    
+def get_statistics():
+    try:
+        url = f"https://api.ultramsg.com/{instance}/messages/statistics"
+        querystring = {"token": wapp_token}
+        response = requests.request("GET", url, headers={'content-type': 'application/json'}, params=querystring)
+        logging.info(response.text)
+        message_stats = response.json()['messages_statistics']
+        txt_message = (
+            f"Statistics:\n"
+            f"{'Sent:':<10} {message_stats['sent']}\n"
+            f"{'Queue:':<8} {message_stats['queue']}\n"
+            f"{'Unsent:':<8} {message_stats['unsent']}\n"
+            f"{'Invalid:':<10} {message_stats['invalid']}\n"
+            f"{'Expired:':<8} {message_stats['expired']}"
+        )
+        return txt_message
+    except Exception as e:
+        raise WappSenderError(f'{e} - in get_statistics()')
         
 @lru_cache(maxsize=1)        
 def get_groups_dict():
@@ -298,7 +317,9 @@ def send_in_background(target_ids, content, user_id, success_message):
         if broadcast_op['terminate']:
             send_txt_message(user_id, "Process of termination in under process!!!!")
         else:
+            txt_message=get_statistics()
             send_txt_message(user_id, success_message)
+            send_txt_message(user_id,txt_message)
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in send_in_background()')
     broadcast_op['main_loop_mood'] = False
@@ -492,21 +513,6 @@ def webhook_post():
                             upload_content_op['content']['text']=text_message
                             send_txt_message(user_id,'Text message received!')
                         return jsonify({'status': 'ok'})
-
-                elif text_message == "/start":
-                    if not user_id in login_op['login_users']:
-                        send_txt_message(user_id, "Hello! I am WappSender,\nI am here to help you with WhatsApp broadcasting.\nTo get started, please /login to use the bot.")
-                    else:
-                        send_txt_message(user_id,"Welcome back! You are already logged in.")
-                    return jsonify({'status': 'ok'})
-
-                elif text_message == "/login":
-                    if user_id in login_op['login_users']:
-                        send_txt_message(user_id,"You are already logged in.")
-                        return jsonify({'status': 'ok'})
-                    send_txt_message(user_id,'Please enter the password to login:')
-                    login_op['login_mode']=True
-                    return jsonify({'status': 'ok'})
                 
                 elif text_message == '/upload_content':
                     if user_id not in login_op['login_users']:
@@ -532,6 +538,32 @@ def webhook_post():
                     upload_content_op['upload_content_mode']=False
                     send_txt_message(user_id,'1. Send a message to all groups\n2. Send a message to selected groups\n3. Send a message to Aditya')
                     broadcast_op['broadcast_mode']=True
+                    return jsonify({'status': 'ok'})
+                
+                elif text_message == "/show_status":
+                    try:
+                        if user_id not in login_op['login_users']:
+                            send_txt_message(user_id,"Please log in first using /login.")
+                        else:
+                            txt_message=get_statistics()
+                            send_txt_message(user_id,txt_message)
+                    except Exception as e:
+                        send_txt_message(user_id, f'Error: {e} occurred in show_status()')
+                    return jsonify({'status': 'ok'})
+                
+                elif text_message == "/login":
+                    if user_id in login_op['login_users']:
+                        send_txt_message(user_id,"You are already logged in.")
+                        return jsonify({'status': 'ok'})
+                    send_txt_message(user_id,'Please enter the password to login:')
+                    login_op['login_mode']=True
+                    return jsonify({'status': 'ok'})
+
+                elif text_message == "/start":
+                    if not user_id in login_op['login_users']:
+                        send_txt_message(user_id, "Hello! I am WappSender,\nI am here to help you with WhatsApp broadcasting.\nTo get started, please /login to use the bot.")
+                    else:
+                        send_txt_message(user_id,"Welcome back! You are already logged in.")
                     return jsonify({'status': 'ok'})
                     
                 elif text_message == '/exclude_users':
@@ -586,7 +618,7 @@ def cache_clear():
     get_excluded_users.cache_clear()
     excluded_user_var=get_excluded_users()
     groups_var=get_groups_dict()
-    return jsonify({'Excluded_Users': excluded_user_var, 'WhatsGropp': groups_var}), 200
+    return jsonify({'Excluded_Users': excluded_user_var, 'WhatsappGroups': groups_var}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
