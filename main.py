@@ -91,7 +91,7 @@ def send_text(target:str,text:str):
         payload = json.dumps({
             "token": wapp_token,
             "to": target,
-            "priority": 5,
+            "priority": 0,
             "body": text
         })
         response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
@@ -105,7 +105,7 @@ def send_image(target:str,cap:str,link:str):
         url = f"https://api.ultramsg.com/{instance}/messages/image"
         payload = json.dumps({
             "token": wapp_token,
-            "priority": 5,
+            "priority": 0,
             "to": target,
             "image": link,
             "caption": cap,
@@ -121,7 +121,7 @@ def send_video(target:str,cap:str,link:str):
         url = f"https://api.ultramsg.com/{instance}/messages/video"
         payload = json.dumps({
             "token": wapp_token,
-            "priority": 5,
+            "priority": 0,
             "to": target,
             "video": link,
             "caption": cap,
@@ -137,7 +137,7 @@ def send_document(target:str,cap:str,link:str,docname:str):
         url = f"https://api.ultramsg.com/{instance}/messages/document"
         payload = json.dumps({
             "token": wapp_token,
-            "priority": 5,
+            "priority": 0,
             "to": target,
             "filename": docname,
             "document": link,
