@@ -501,8 +501,8 @@ def webhook_post():
                         if text_message.startswith('&'):
                             upload_content_op['content']['videos'].append(text_message.lstrip('&'))
                             send_txt_message(user_id,"Video received")
-                        elif text_message.startswith('@'):
-                            upload_content_op['content']['photos'].append(text_message.lstrip('@'))
+                        elif text_message.startswith('₹'):
+                            upload_content_op['content']['photos'].append(text_message.lstrip('₹'))
                             send_txt_message(user_id,"Photo received")
                         else:
                             upload_content_op['content']['text']=text_message
