@@ -40,11 +40,16 @@ cred_dict = {
   "universe_domain": "googleapis.com"
 }
 
-cred = credentials.Certificate(cred_dict)
+cred = credentials.Certificate('wappsender-key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 logging.basicConfig(level=logging.INFO)
+
+session = requests.Session()
+session.headers.update({'Content-Type': 'application/json'})
+session.params={"token": wapp_token}
+
 app = Flask(__name__)
 
 class WappSenderError(Exception):
@@ -89,11 +94,10 @@ def send_text(target:str,text:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/chat"
         payload = json.dumps({
-            "token": wapp_token,
             "to": target,
             "body": text
         })
-        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        response = session.post(url, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -103,12 +107,11 @@ def send_image(target:str,cap:str,link:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/image"
         payload = json.dumps({
-            "token": wapp_token,
             "to": target,
             "image": link,
             "caption": cap,
         })
-        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        response = session.post(url, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -118,12 +121,11 @@ def send_video(target:str,cap:str,link:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/video"
         payload = json.dumps({
-            "token": wapp_token,
             "to": target,
             "video": link,
             "caption": cap,
         })
-        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        response = session.post(url, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -133,13 +135,12 @@ def send_document(target:str,cap:str,link:str,docname:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/document"
         payload = json.dumps({
-            "token": wapp_token,
             "to": target,
             "filename": docname,
             "document": link,
             "caption": cap,
         })
-        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        response = session.post(url, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -190,11 +191,8 @@ def send_to_groups(ids:list,content:dict,user_id:str):
 def delete_messages(msgId:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/delete"
-        payload = json.dumps({
-            "token": wapp_token,
-            "msgId": msgId
-        })
-        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
+        payload = json.dumps({"msgId": msgId})
+        response = session.post(url, data=payload)
         logging.info(response.text)
         return response.json()
     except Exception as e:
@@ -203,8 +201,7 @@ def delete_messages(msgId:str):
 def get_statistics():
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/statistics"
-        querystring = {"token": wapp_token}
-        response = requests.request("GET", url, headers={'content-type': 'application/json'}, params=querystring)
+        response = session.get(url)
         logging.info(response.text)
         message_stats = response.json()['messages_statistics']
         txt_message = (
@@ -223,10 +220,7 @@ def get_statistics():
 def get_groups_dict():
     try:
         url = f"https://api.ultramsg.com/{instance}/groups"
-
-        querystring = {"token": wapp_token}
-
-        response = requests.request("GET", url, headers={'Content-Type': 'application/json'}, params=querystring)
+        response = session.get(url)
         groups=response.json()
         groups_dict={}
         
@@ -239,8 +233,8 @@ def get_groups_dict():
 def clear_messages(status):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/clear"
-        payload = json.dumps({"token": wapp_token, "status": status})
-        requests.post(url, headers={'Content-Type': 'application/json'}, data=payload)
+        payload = json.dumps({"status": status})
+        session.post(url, data=payload)
     except Exception as e:
         raise WappSenderError(f'{e} - in clear_messages()')
 
