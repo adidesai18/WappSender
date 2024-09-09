@@ -308,9 +308,7 @@ def send_in_background(target_ids, content, user_id, success_message):
     broadcast_op['main_loop_mood'] = True
     try:
         send_to_groups(target_ids, content,user_id)
-        if broadcast_op['terminate']:
-            send_txt_message(user_id, "Process of termination in under process!!!!")
-        else:
+        if not broadcast_op['terminate']:
             txt_message=get_statistics()
             send_txt_message(user_id, success_message)
             send_txt_message(user_id,txt_message)
