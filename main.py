@@ -40,7 +40,7 @@ cred_dict = {
   "universe_domain": "googleapis.com"
 }
 
-cred = credentials.Certificate('wappsender-key.json')
+cred = credentials.Certificate(cred_dict)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
