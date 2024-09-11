@@ -40,15 +40,11 @@ cred_dict = {
   "universe_domain": "googleapis.com"
 }
 
-cred = credentials.Certificate(cred_dict)
+cred = credentials.Certificate('wappsender-key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 logging.basicConfig(level=logging.INFO)
-
-session = requests.Session()
-session.headers.update({'Content-Type': 'application/json'})
-session.params={"token": wapp_token}
 
 app = Flask(__name__)
 
@@ -71,7 +67,6 @@ upload_content_op={
         'photos':[],
         'videos':[],
         'documents':[],
-        'text':None
     }
 }
 
@@ -95,9 +90,10 @@ def send_text(target:str,text:str):
         url = f"https://api.ultramsg.com/{instance}/messages/chat"
         payload = json.dumps({
             "to": target,
+            "token": wapp_token,
             "body": text
         })
-        response = session.post(url, data=payload)
+        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -109,9 +105,10 @@ def send_image(target:str,cap:str,link:str):
         payload = json.dumps({
             "to": target,
             "image": link,
+            "token": wapp_token,
             "caption": cap,
         })
-        response = session.post(url, data=payload)
+        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -122,10 +119,11 @@ def send_video(target:str,cap:str,link:str):
         url = f"https://api.ultramsg.com/{instance}/messages/video"
         payload = json.dumps({
             "to": target,
+            "token": wapp_token,
             "video": link,
             "caption": cap,
         })
-        response = session.post(url, data=payload)
+        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -135,12 +133,13 @@ def send_document(target:str,cap:str,link:str,docname:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/document"
         payload = json.dumps({
+            "token": wapp_token,
             "to": target,
             "filename": docname,
             "document": link,
             "caption": cap,
         })
-        response = session.post(url, data=payload)
+        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
     except Exception as e:
         broadcast_op['error_target']=target
@@ -156,19 +155,19 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                 send_txt_message(user_id,'Termination process initiated!!!!')
                 break
             else:
-                if 'photos' in content:
+                if content['photos']:
                     for img in content['photos']:
                         if broadcast_op['terminate']:
                             pass
                         else:
                             send_image(id,'',img)
-                if 'videos' in content:
+                if content['videos']:
                     if broadcast_op['terminate']:
                         pass
                     else:
                         for vid in content['videos']:
                             send_video(id,'',vid)
-                if 'documents' in content:
+                if content['documents']:
                     if broadcast_op['terminate']:
                         pass
                     else:
@@ -191,8 +190,10 @@ def send_to_groups(ids:list,content:dict,user_id:str):
 def delete_messages(msgId:str):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/delete"
-        payload = json.dumps({"msgId": msgId})
-        response = session.post(url, data=payload)
+        payload = json.dumps({
+            "token": wapp_token,
+            "msgId": msgId})
+        response = requests.request("POST", url, headers={'Content-Type': 'application/json'}, data=payload)
         logging.info(response.text)
         return response.json()
     except Exception as e:
@@ -201,7 +202,8 @@ def delete_messages(msgId:str):
 def get_statistics():
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/statistics"
-        response = session.get(url)
+        querystring = {"token": wapp_token}
+        response = requests.request("GET", url, headers={'content-type': 'application/json'}, params=querystring)
         logging.info(response.text)
         message_stats = response.json()['messages_statistics']
         txt_message = (
@@ -220,7 +222,8 @@ def get_statistics():
 def get_groups_dict():
     try:
         url = f"https://api.ultramsg.com/{instance}/groups"
-        response = session.get(url)
+        querystring = {"token": wapp_token}
+        response = requests.request("GET", url, headers={'Content-Type': 'application/json'}, params=querystring)
         groups=response.json()
         groups_dict={}
         
@@ -233,8 +236,8 @@ def get_groups_dict():
 def clear_messages(status):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/clear"
-        payload = json.dumps({"status": status})
-        session.post(url, data=payload)
+        payload = json.dumps({"token": wapp_token, "status": status})
+        requests.post(url, headers={'Content-Type': 'application/json'}, data=payload)
     except Exception as e:
         raise WappSenderError(f'{e} - in clear_messages()')
 
@@ -292,7 +295,6 @@ def clear_content():
         'photos': [],
         'videos': [],
         'documents': [],
-        'text': None
     }
 
     upload_content_op['upload_content_mode'] = False
@@ -314,6 +316,36 @@ def send_in_background(target_ids, content, user_id, success_message):
             send_txt_message(user_id,txt_message)
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in send_in_background()')
+    broadcast_op['main_loop_mood'] = False
+    clear_content()
+
+def concurrent_broadcast(target_ids,content,user_id,success_message):
+    broadcast_op['main_loop_mood'] = True
+    try:
+        if documents := content.get('documents'):
+            doc_info = documents[0]
+            doc_name = next(iter(doc_info))
+            doc_link = doc_info[doc_name]
+            caption = content.get('text', '')
+            targets_string = ','.join(target_ids)
+            send_document(targets_string,caption,doc_link,doc_name)
+        elif content.get('videos'):
+            caption = content.get('text', '') 
+            targets_string = ','.join(target_ids)
+            send_video(targets_string,caption,content['videos'][0])
+        elif content.get('photos'):
+            caption = content.get('text', '')
+            targets_string = ','.join(target_ids)
+            send_image(targets_string,caption,content['photos'][0])
+        elif 'text' in content and content['text']!=None:
+            targets_string = ','.join(target_ids)
+            send_text(targets_string,content['text'])
+
+        txt_message=get_statistics()
+        send_txt_message(user_id, success_message)
+        send_txt_message(user_id,txt_message)
+    except Exception as e:
+        send_txt_message(user_id, f'Error: {e} - in concurrent_broadcast()')
     broadcast_op['main_loop_mood'] = False
     clear_content()
 
@@ -370,6 +402,8 @@ def upload_document_in_background(update:dict,user_id:str):
             return
         send_txt_message(user_id,f"Document received: {file_size_mb} MB")
         file_name=file['file_name']
+        if file_name.endswith('.pdf'):
+            file_name = file_name[:-4]
         path=get_file_path(file_id)
         upload_content_op['content']['documents'].append({file_name:path})         
         logging.info(path)      
@@ -463,12 +497,7 @@ def webhook_post():
                             try:
                                 excluded_users=get_excluded_users()                             
                                 if excluded_users:
-                                    target_list = []
-                                    for id in get_groups_dict().keys():
-                                        if id in excluded_users:
-                                            pass
-                                        else:
-                                            target_list.append(id)
+                                    target_list = [id for id in get_groups_dict().keys() if id not in excluded_users]
                                     doc_message = db.collection('WappSender').document('message-ids')
                                     doc_message.update({'ids': []})
                                     executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to selected groups.')
@@ -484,13 +513,24 @@ def webhook_post():
                             return jsonify({'status': 'ok'})
 
                         elif text_message == '1':
-                            target_list = []
                             try:
-                                for id in get_groups_dict().keys():
-                                    target_list.append(id)
+                                target_list = list(get_groups_dict().keys())
                                 doc_message = db.collection('WappSender').document('message-ids')
                                 doc_message.update({'ids': []})
                                 executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.')
+                                send_txt_message(user_id, 'Request received!.')
+                            except Exception as e:
+                                clear_content()
+                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
+                            return jsonify({'status': 'ok'})
+                        
+                        elif text_message == '0':
+                            try:
+                                excluded_users=get_excluded_users()
+                                target_list = [id for id in get_groups_dict().keys() if id not in excluded_users]
+                                doc_message = db.collection('WappSender').document('message-ids')
+                                doc_message.update({'ids': []})
+                                executor.submit(concurrent_broadcast, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.')
                                 send_txt_message(user_id, 'Request received!.')
                             except Exception as e:
                                 clear_content()
