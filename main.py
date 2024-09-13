@@ -418,8 +418,8 @@ def webhook_post():
     update = request.json
     if 'message' in update:
         user_id = update['message']['chat']['id']
-
-        if any(key in update['message'] for key in ["photo", "video", "document"]):
+        media_keys = {"photo", "video", "document"}
+        if media_keys.intersection(update['message']):
             if upload_content_op['upload_content_mode'] and not broadcast_op['main_loop_mood']:
                 if 'photo' in update['message']:
                     try:
