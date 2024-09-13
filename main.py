@@ -181,7 +181,6 @@ def send_to_groups(ids:list,content:dict,user_id:str):
                     else:
                         send_text(id,content['text'])
                 broadcast_op['group_count']+=1
-        send_text('+917020805020','Broadcast completed.')
     except Exception as e:
         broadcast_op['error_target_index']=ids.index(broadcast_op['error_target'])
         broadcast_op['error_resend_list']=ids[broadcast_op['error_target_index']:]
@@ -312,6 +311,7 @@ def send_in_background(target_ids, content, user_id, success_message):
     try:
         send_to_groups(target_ids, content,user_id)
         if not broadcast_op['terminate']:
+            send_text('+917020805020','Broadcast completed.')
             txt_message=get_statistics()
             send_txt_message(user_id, success_message)
             send_txt_message(user_id,txt_message)
