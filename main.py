@@ -303,6 +303,7 @@ def clear_content():
         'upload_content_mode':False,
         'content': {'files':[],}
     })
+    exclude_op.update({'exclude_mode':False})
 
     broadcast_op.update({
         'broadcast_mode': False,
