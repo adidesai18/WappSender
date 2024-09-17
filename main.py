@@ -54,6 +54,7 @@ class WappSenderError(Exception):
 login_op={
     'login_mode':False,
     'login_users':{
+        1083765153: True,
     }
 }
 
@@ -64,9 +65,7 @@ exclude_op={
 upload_content_op={
     'upload_content_mode':False,
     'content':{
-        'photos':[],
-        'videos':[],
-        'documents':[],
+        'files':[]
     }
 }
 
@@ -144,47 +143,53 @@ def send_document(target:str,cap:str,link:str,docname:str):
     except Exception as e:
         broadcast_op['error_target']=target
         raise WappSenderError(f'{e} - in send_document()')
-
-def send_to_groups(ids:list,content:dict,user_id:str):
+    
+def broadcast(ids:list,content:dict,user_id:str):
     try:
-        broadcast_op['groups_len']=len(ids)
-        for id in ids:
-            if broadcast_op['terminate']:
-                clear_content()
-                executor.submit(terminate,  user_id)
-                send_txt_message(user_id,'Termination process initiated!!!!')
-                break
-            else:
-                if content['photos']:
-                    for img in content['photos']:
+        file_count=len(content['files'])
+        if file_count==1:
+            targets_string = ','.join(ids)
+            caption = content.get('text', '')
+            (file_type, file_content),= content['files'][0].items()
+            if file_type=='videos':
+                send_video(targets_string,caption,file_content)
+            elif file_type=='photos':
+                send_image(targets_string,caption,file_content)
+            elif file_type=='documents':
+                (doc_name, doc_link),=file_content.items()
+                send_document(targets_string,caption,doc_link,doc_name)
+            elif caption!=None:
+                send_text(targets_string,caption)
+        
+        elif file_count>1:
+            broadcast_op['groups_len']=len(ids)
+            for id in ids:
+                if broadcast_op['terminate']:
+                    clear_content()
+                    executor.submit(terminate,  user_id)
+                    send_txt_message(user_id,'Termination process initiated!!!!')
+                    break
+                else:
+                    for file in content['files']:
                         if broadcast_op['terminate']:
-                            pass
+                            break
                         else:
-                            send_image(id,'',img)
-                if content['videos']:
-                    if broadcast_op['terminate']:
-                        pass
-                    else:
-                        for vid in content['videos']:
-                            send_video(id,'',vid)
-                if content['documents']:
-                    if broadcast_op['terminate']:
-                        pass
-                    else:
-                        for doc_dict in content['documents']:
-                            key = list(doc_dict.keys())[0]
-                            value = doc_dict[key]
-                            send_document(id,'',value,key)
-                if 'text' in content and content['text']!=None:
-                    if broadcast_op['terminate']:
-                        pass
-                    else:
+                            (file_type, file_content),= file.items()
+                            if file_type=='videos':
+                                send_video(id,'',file_content)
+                            elif file_type=='photos':
+                                send_image(id,'',file_content)
+                            elif file_type=='documents':
+                                (doc_name, doc_link),=file_content.items()
+                                send_document(id,'',doc_link,doc_name)
+                    if 'text' in content and content['text']!=None:
                         send_text(id,content['text'])
-                broadcast_op['group_count']+=1
+                    broadcast_op['group_count']+=1
     except Exception as e:
-        broadcast_op['error_target_index']=ids.index(broadcast_op['error_target'])
-        broadcast_op['error_resend_list']=ids[broadcast_op['error_target_index']:]
-        logging.info(broadcast_op['error_resend_list'])
+        if file_count>1:
+            error_index=ids.index(id)
+            unsend_targets=ids[error_index:]
+            logging.info(unsend_targets)
         raise WappSenderError(f'{e} - in send_to_groups()')
 
 def delete_messages(msgId:str):
@@ -237,7 +242,8 @@ def clear_messages(status):
     try:
         url = f"https://api.ultramsg.com/{instance}/messages/clear"
         payload = json.dumps({"token": wapp_token, "status": status})
-        requests.post(url, headers={'Content-Type': 'application/json'}, data=payload, timeout=10)
+        response=requests.post(url, headers={'Content-Type': 'application/json'}, data=payload, timeout=10)
+        logging.info(response.text)
     except Exception as e:
         raise WappSenderError(f'{e} - in clear_messages()')
 
@@ -245,7 +251,8 @@ def terminate(user_id):
     try:
         clear_messages("queue")
         clear_messages("sent")
-        time.sleep(10)
+        clear_content()
+        time.sleep(5)
         value = db.collection('WappSender').document('message-ids').get().get('ids')
         for msgId in value:
             delete_messages(msgId)
@@ -253,7 +260,9 @@ def terminate(user_id):
         broadcast_op['main_loop_mood'] = False
         broadcast_op['terminate']=False
     except Exception as e:
-        raise WappSenderError(f'{e} - in terminate()')
+        broadcast_op['main_loop_mood'] = False
+        broadcast_op['terminate']=False
+        send_txt_message(user_id, f'Error: {e} - in terminate()')
 
 @lru_cache(maxsize=1)        
 def get_excluded_users():
@@ -290,14 +299,10 @@ def send_txt_message(chat_id, text):
         logging.error(f"Error: {e} occurred while sending the text message through the Telegram bot.")
 
 def clear_content():
-
-    upload_content_op['content'] = {
-        'photos': [],
-        'videos': [],
-        'documents': [],
-    }
-
-    upload_content_op['upload_content_mode'] = False
+    upload_content_op.update({
+        'upload_content_mode':False,
+        'content': {'files':[],}
+    })
 
     broadcast_op.update({
         'broadcast_mode': False,
@@ -309,90 +314,17 @@ def clear_content():
 def send_in_background(target_ids, content, user_id, success_message):
     broadcast_op['main_loop_mood'] = True
     try:
-        send_to_groups(target_ids, content,user_id)
-        if not broadcast_op['terminate']:
+        broadcast(target_ids,content,user_id)
+        if not broadcast_op['terminate'] and len(target_ids)!=1:
             send_text('+917020805020','Broadcast completed.')
             txt_message=get_statistics()
             send_txt_message(user_id, success_message)
             send_txt_message(user_id,txt_message)
+            clear_content()
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in send_in_background()')
     broadcast_op['main_loop_mood'] = False
-    clear_content()
-
-def concurrent_broadcast(target_ids,content,user_id,success_message):
-    broadcast_op['main_loop_mood'] = True
-    try:
-        if documents := content.get('documents'):
-            doc_info = documents[0]
-            doc_name = next(iter(doc_info))
-            doc_link = doc_info[doc_name]
-            caption = content.get('text', '')
-            targets_string = ','.join(target_ids)
-            send_document(targets_string,caption,doc_link,doc_name)
-        elif content.get('videos'):
-            caption = content.get('text', '') 
-            targets_string = ','.join(target_ids)
-            send_video(targets_string,caption,content['videos'][0])
-        elif content.get('photos'):
-            caption = content.get('text', '')
-            targets_string = ','.join(target_ids)
-            send_image(targets_string,caption,content['photos'][0])
-        elif 'text' in content and content['text']!=None:
-            targets_string = ','.join(target_ids)
-            send_text(targets_string,content['text'])
-        
-        send_text('+917020805020','Broadcast completed.')
-        txt_message=get_statistics()
-        send_txt_message(user_id, success_message)
-        send_txt_message(user_id,txt_message)
-    except Exception as e:
-        send_txt_message(user_id, f'Error: {e} - in concurrent_broadcast()')
-    broadcast_op['main_loop_mood'] = False
-    clear_content()
-
-def terminate_in_background(user_id):
-    broadcast_op['main_loop_mood'] = True
-    try:
-        clear_content()
-        executor.submit(terminate,  user_id)
-    except Exception as e:
-        send_txt_message(user_id, f'Error: {e} - in terminate_in_background()')
-        broadcast_op['main_loop_mood'] = False
-        broadcast_op['terminate']=False
-
-def upload_photo_in_background(update:dict,user_id:str):
-    try:
-        file=update['message']['photo'][-1]
-        file_id=file['file_id']
-        file_size=file['file_size']
-        file_size_mb=bytes_to_mb(file_size)
-        if file_size_mb>15.9:
-            send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
-            return
-        send_txt_message(user_id,f"Photo received: {file_size_mb} MB")
-        path=get_file_path(file_id)
-        upload_content_op['content']['photos'].append(path)
-        logging.info(path)      
-    except Exception as e:
-        send_txt_message(user_id, f'Error: {e} - in upload_photo_in_background()')
-    
-def upload_video_in_background(update:dict,user_id:str):
-    try:
-        file=update['message']['video']
-        file_id=file['file_id']
-        file_size=file['file_size']
-        file_size_mb=bytes_to_mb(file_size)
-        if file_size_mb>15.9:
-            send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
-            return
-        send_txt_message(user_id,f"Video received: {file_size_mb} MB")
-        path=get_file_path(file_id)
-        upload_content_op['content']['videos'].append(path)
-        logging.info(path)      
-    except Exception as e:
-        send_txt_message(user_id, f'Error: {e} - in upload_video_in_background()')
-    
+  
 def upload_document_in_background(update:dict,user_id:str):
     try:
         file=update['message']['document']
@@ -403,14 +335,29 @@ def upload_document_in_background(update:dict,user_id:str):
             send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
             return
         send_txt_message(user_id,f"Document received: {file_size_mb} MB")
-        file_name=file['file_name']
-        if file_name.endswith('.pdf'):
-            file_name = file_name[:-4]
+        file_type=categorize_mime_type(file['mime_type'])
         path=get_file_path(file_id)
-        upload_content_op['content']['documents'].append({file_name:path})         
+        if file_type=='documents':
+            file_name=file['file_name']
+            if file_name.endswith('.pdf'):
+                file_name = file_name[:-4]
+            upload_content_op['content']['files'].append({'documents':{file_name:path}})  
+        else:
+            upload_content_op['content']['files'].append({file_type:path})
         logging.info(path)      
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in upload_document_in_background()')
+
+def categorize_mime_type(mime_type):
+    if mime_type.startswith('image/'):
+        return 'photos'
+    elif mime_type.startswith('video/'):
+        return 'videos'
+    elif mime_type.startswith('application/'):
+        return 'documents'
+    else:
+        return 'Unknown Type'
+
 # -----------------------------------------------------------
 
 @app.route('/', methods=['POST'])
@@ -418,29 +365,12 @@ def webhook_post():
     update = request.json
     if 'message' in update:
         user_id = update['message']['chat']['id']
-        media_keys = {"photo", "video", "document"}
-        if media_keys.intersection(update['message']):
-            if upload_content_op['upload_content_mode'] and not broadcast_op['main_loop_mood']:
-                if 'photo' in update['message']:
-                    try:
-                        executor.submit(upload_photo_in_background, update, user_id)
-                    except Exception as e:
-                            send_txt_message(user_id, f"Error: {e} occurred during the photo upload process")
-                    return jsonify({'status': 'ok'})
-                        
-                elif 'video' in update['message']:
-                    try:
-                        executor.submit(upload_video_in_background, update, user_id)
-                    except Exception as e:
-                            send_txt_message(user_id, f"Error: {e} occurred during the video upload process")
-                    return jsonify({'status': 'ok'})
-                    
-                elif 'document' in update['message']:
-                    try:
-                        executor.submit(upload_document_in_background, update, user_id)
-                    except Exception as e:
-                            send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
-                    return jsonify({'status': 'ok'})
+        if 'document' in update['message'] and upload_content_op['upload_content_mode'] and not broadcast_op['main_loop_mood']:
+            try:
+                executor.submit(upload_document_in_background, update, user_id)
+            except Exception as e:
+                    send_txt_message(user_id, f"Error: {e} occurred during the document upload process")
+            return jsonify({'status': 'ok'})
             
         elif 'text' in update['message']:
             text_message=update['message']['text']
@@ -484,15 +414,25 @@ def webhook_post():
                     elif broadcast_op['broadcast_mode']:
 
                         if text_message == '3':
-                            broadcast_op['main_loop_mood'] = True
                             try:
-                                send_to_groups(['+917020805020'], upload_content_op['content'],user_id)
+                                broadcast(['+917020805020'],upload_content_op['content'],user_id)
                                 send_txt_message(user_id, 'The message has been successfully sent to Aditya.')
-                            except Exception as e:         
-                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to Aditya')
-                            broadcast_op['main_loop_mood'] = False
-                            upload_content_op['upload_content_mode'] = True        
-                            broadcast_op['broadcast_mode'] = False
+                                broadcast_op['broadcast_mode'] = False
+                            except Exception as e:
+                                clear_content()
+                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
+                            return jsonify({'status': 'ok'})
+
+                        elif text_message == '1':
+                            try:
+                                target_list = list(get_groups_dict().keys())
+                                doc_message = db.collection('WappSender').document('message-ids')
+                                doc_message.update({'ids': []})
+                                executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.')
+                                send_txt_message(user_id, 'Request received!.')
+                            except Exception as e:
+                                clear_content()
+                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
                             return jsonify({'status': 'ok'})
                         
                         elif text_message == '2':
@@ -508,47 +448,14 @@ def webhook_post():
                                     get_excluded_users.cache_clear()
                                     send_txt_message(user_id, 'Please use the /exclude_users command to select the groups you wish to exclude from broadcasting.')
                                     broadcast_op['broadcast_mode'] = False
-                                    upload_content_op['upload_content_mode'] = True                
                             except Exception as e:
                                 clear_content()
                                 send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to selected groups')
                             return jsonify({'status': 'ok'})
-
-                        elif text_message == '1':
-                            try:
-                                target_list = list(get_groups_dict().keys())
-                                doc_message = db.collection('WappSender').document('message-ids')
-                                doc_message.update({'ids': []})
-                                executor.submit(send_in_background, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.')
-                                send_txt_message(user_id, 'Request received!.')
-                            except Exception as e:
-                                clear_content()
-                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
-                            return jsonify({'status': 'ok'})
-                        
-                        elif text_message == '0':
-                            try:
-                                excluded_users=get_excluded_users()
-                                target_list = [id for id in get_groups_dict().keys() if id not in excluded_users]
-                                doc_message = db.collection('WappSender').document('message-ids')
-                                doc_message.update({'ids': []})
-                                executor.submit(concurrent_broadcast, target_list, upload_content_op['content'], user_id, 'The message has been successfully sent to all groups.')
-                                send_txt_message(user_id, 'Request received!.')
-                            except Exception as e:
-                                clear_content()
-                                send_txt_message(user_id, f'Error: {e} occurred while broadcasting content to all groups')
-                            return jsonify({'status': 'ok'})
                         
                     elif upload_content_op['upload_content_mode']:
-                        if text_message.startswith('&'):
-                            upload_content_op['content']['videos'].append(text_message.lstrip('&'))
-                            send_txt_message(user_id,"Video received")
-                        elif text_message.startswith('₹'):
-                            upload_content_op['content']['photos'].append(text_message.lstrip('₹'))
-                            send_txt_message(user_id,"Photo received")
-                        else:
-                            upload_content_op['content']['text']=text_message
-                            send_txt_message(user_id,'Text message received!')
+                        upload_content_op['content']['text']=text_message
+                        send_txt_message(user_id,'Text message received!')
                         return jsonify({'status': 'ok'})
                 
                 elif text_message == '/upload_content':
@@ -569,7 +476,7 @@ def webhook_post():
                     return jsonify({'status': 'ok'})
 
                 elif text_message == '/broadcast':
-                    if not upload_content_op['upload_content_mode']:
+                    if len(upload_content_op['content']['files'])==0 and  'text' not in upload_content_op['content']:
                         send_txt_message(user_id,"No content has been uploaded yet. Please use the /upload_content command to upload content before proceeding with the broadcast.")
                         return jsonify({'status': 'ok'})
                     upload_content_op['upload_content_mode']=False
@@ -627,7 +534,8 @@ def webhook_post():
 
                 elif text_message == "/terminate":
                     try:
-                        executor.submit(terminate_in_background, user_id)
+                        broadcast_op['main_loop_mood'] = True
+                        executor.submit(terminate, user_id)
                         send_txt_message(user_id,'Termination process initiated!!!!')
                     except Exception as e:
                         send_txt_message(user_id, f'Error: {e} occurred while initiating terminate_in_background()')
