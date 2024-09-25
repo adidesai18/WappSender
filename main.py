@@ -329,7 +329,6 @@ def upload_document_in_background(update:dict,user_id:str):
         if file_size_mb>15.9:
             send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
             return
-        send_txt_message(user_id,f"Document received: {file_size_mb} MB")
         file_id=file['file_id']
         file_type=categorize_mime_type(file['mime_type'])
         path=get_file_path(file_id)
@@ -340,6 +339,7 @@ def upload_document_in_background(update:dict,user_id:str):
             upload_content_op['content']['files'].append({'documents':{file_name:path}})  
         else:
             upload_content_op['content']['files'].append({file_type:path})
+        send_txt_message(user_id,f"Document received: {file_size_mb} MB")
         logging.info(path)      
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in upload_document_in_background()')
