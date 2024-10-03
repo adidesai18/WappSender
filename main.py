@@ -19,28 +19,8 @@ bot_token = os.getenv('bot_token')
 telegram_api_url = f"https://api.telegram.org/bot{bot_token}"
 instance = os.getenv('instance')
 wapp_token = os.getenv('wapp_token')
-private_key=os.getenv('private_key')
-private_key_id=os.getenv('private_key_id')
-client_email=os.getenv('client_email')
-project_id=os.getenv('project_id')
-client_id=os.getenv('client_id')
-client_x509_cert_url=os.getenv('client_x509_cert_url')
 
-cred_dict = {
-  "type": "service_account",
-  "project_id": project_id,
-  "private_key_id": private_key_id,
-  "private_key": private_key,
-  "client_email": client_email,
-  "client_id": client_id,
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": client_x509_cert_url,
-  "universe_domain": "googleapis.com"
-}
-
-cred = credentials.Certificate(cred_dict)
+cred = credentials.Certificate('wappsender-key.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -226,10 +206,12 @@ def get_groups_dict():
         response = requests.request("GET", url, headers={'Content-Type': 'application/json'}, params=querystring, timeout=10)
         groups=response.json()
         groups_dict={}
-        
-        for group in groups:
-            groups_dict[group['id']]=group['name']
-        return groups_dict
+        if 'error' in groups:
+            raise WappSenderError('instance is not connected')
+        else:
+            for group in groups:
+                groups_dict[group['id']]=group['name']
+            return groups_dict
     except Exception as e:
         raise WappSenderError(f'{e} - in get_groups_dict()')
 
@@ -329,6 +311,7 @@ def upload_document_in_background(update:dict,user_id:str):
         if file_size_mb>15.9:
             send_txt_message(user_id,f"File size too big: {file_size_mb} MB")
             return
+        send_txt_message(user_id,f"Document received: {file_size_mb} MB")
         file_id=file['file_id']
         file_type=categorize_mime_type(file['mime_type'])
         path=get_file_path(file_id)
@@ -339,7 +322,6 @@ def upload_document_in_background(update:dict,user_id:str):
             upload_content_op['content']['files'].append({'documents':{file_name:path}})  
         else:
             upload_content_op['content']['files'].append({file_type:path})
-        send_txt_message(user_id,f"Document received: {file_size_mb} MB")
         logging.info(path)      
     except Exception as e:
         send_txt_message(user_id, f'Error: {e} - in upload_document_in_background()')
@@ -570,11 +552,14 @@ def health_check():
 
 @app.route('/clear', methods=['GET'])
 def cache_clear():
-    get_groups_dict.cache_clear()
-    get_excluded_users.cache_clear()
-    excluded_user_var=get_excluded_users()
-    groups_var=get_groups_dict()
-    return jsonify({'Excluded_Users': excluded_user_var, 'WhatsappGroups': groups_var}), 200
+    try:
+        get_groups_dict.cache_clear()
+        get_excluded_users.cache_clear()
+        excluded_user_var=get_excluded_users()
+        groups_var=get_groups_dict()
+        return jsonify({'Excluded_Users': excluded_user_var, 'WhatsappGroups': groups_var}), 200
+    except Exception as e:
+        return jsonify({'error':str(e)}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
